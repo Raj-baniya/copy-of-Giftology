@@ -3,13 +3,14 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Icons } from '../components/ui/Icons';
 import { motion } from 'framer-motion';
+import { store } from '../services/store';
+import { Order } from '../types';
 
 const TabButton = ({ active, onClick, icon: Icon, label }: any) => (
   <button
     onClick={onClick}
-    className={`flex items-center justify-center md:justify-start gap-2 px-4 py-3 rounded-lg transition-all flex-shrink-0 whitespace-nowrap text-sm md:text-base ${
-      active ? 'bg-primary/20 text-black font-bold border border-primary/20' : 'text-textMuted hover:bg-gray-100 border border-transparent'
-    } ${window.innerWidth < 768 ? 'w-auto' : 'w-full text-left'}`}
+    className={`flex items-center justify-center md:justify-start gap-2 px-4 py-3 rounded-lg transition-all flex-shrink-0 whitespace-nowrap text-sm md:text-base ${active ? 'bg-primary/20 text-black font-bold border border-primary/20' : 'text-textMuted hover:bg-gray-100 border border-transparent'
+      } ${window.innerWidth < 768 ? 'w-auto' : 'w-full text-left'}`}
   >
     <Icon className="w-4 h-4 md:w-5 md:h-5" />
     {label}
@@ -17,24 +18,53 @@ const TabButton = ({ active, onClick, icon: Icon, label }: any) => (
 );
 
 export const Account = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, loading } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (user) {
+        try {
+          const userOrders = await store.getOrders(user.id);
+          setOrders(userOrders);
+        } catch (error) {
+          console.error("Failed to fetch orders", error);
+        } finally {
+          setOrdersLoading(false);
+        }
+      }
+    };
+
+    if (!loading && user) {
+      fetchOrders();
+    }
+  }, [user, loading]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!user) return <Navigate to="/login" />;
 
   const handleUpdateName = async () => {
-    if(newName.trim()) {
-        await updateProfile(newName);
-        setIsEditing(false);
+    if (newName.trim()) {
+      await updateProfile(newName);
+      setIsEditing(false);
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-6 md:py-10 px-4">
       <div className="max-w-6xl mx-auto">
-        
+
         {/* Header Card */}
         <div className="bg-white rounded-2xl shadow-sm p-6 md:p-8 mb-8 flex flex-col md:flex-row items-center md:items-start gap-6">
           <div className="w-20 h-20 md:w-24 md:h-24 bg-primary/30 rounded-full flex items-center justify-center text-2xl md:text-3xl font-serif text-primary-dark flex-shrink-0">
@@ -43,22 +73,22 @@ export const Account = () => {
           <div className="flex-1 text-center md:text-left w-full">
             <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
               {isEditing ? (
-                  <div className="flex gap-2 items-center justify-center md:justify-start">
-                      <input 
-                        value={newName} 
-                        onChange={e => setNewName(e.target.value)}
-                        className="border rounded px-2 py-1 text-sm bg-white text-gray-900 focus:outline-none focus:border-primary"
-                        placeholder={user.displayName}
-                      />
-                      <button onClick={handleUpdateName} className="text-green-600"><Icons.CheckCircle className="w-5 h-5"/></button>
-                      <button onClick={() => setIsEditing(false)} className="text-red-400"><Icons.X className="w-5 h-5"/></button>
-                  </div>
+                <div className="flex gap-2 items-center justify-center md:justify-start">
+                  <input
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    className="border rounded px-2 py-1 text-sm bg-white text-gray-900 focus:outline-none focus:border-primary"
+                    placeholder={user.displayName}
+                  />
+                  <button onClick={handleUpdateName} className="text-green-600"><Icons.CheckCircle className="w-5 h-5" /></button>
+                  <button onClick={() => setIsEditing(false)} className="text-red-400"><Icons.X className="w-5 h-5" /></button>
+                </div>
               ) : (
                 <>
-                    <h1 className="text-2xl md:text-3xl font-serif font-bold">{user.displayName}</h1>
-                    <button onClick={() => { setNewName(user.displayName); setIsEditing(true); }} className="text-textMuted hover:text-primary">
-                        <Icons.Edit2 className="w-4 h-4" />
-                    </button>
+                  <h1 className="text-2xl md:text-3xl font-serif font-bold">{user.displayName}</h1>
+                  <button onClick={() => { setNewName(user.displayName); setIsEditing(true); }} className="text-textMuted hover:text-primary">
+                    <Icons.Edit2 className="w-4 h-4" />
+                  </button>
                 </>
               )}
             </div>
@@ -84,41 +114,56 @@ export const Account = () => {
           {/* Content Area */}
           <div className="md:col-span-3 space-y-6">
             {activeTab === 'overview' ? (
-                <>
-                  {/* Recent Orders Placeholder */}
-                  <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm">
-                      <h3 className="font-serif text-lg md:text-xl font-bold mb-4">Recent Orders</h3>
-                      <div className="space-y-4">
-                          {[1, 2].map((i) => (
-                              <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 p-3 md:p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
-                                  <div className="flex items-center gap-4 w-full sm:w-auto">
-                                    <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-200 rounded-md shrink-0"></div>
-                                    <div className="flex-1 sm:hidden">
-                                        <h4 className="font-bold text-sm">Order #GF-293{i}</h4>
-                                        <span className="font-bold text-sm">₹2,499</span>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="flex-1 hidden sm:block">
-                                      <h4 className="font-bold">Order #GF-293{i}</h4>
-                                      <p className="text-sm text-textMuted">Delivered on Oct {10+i}, 2023</p>
-                                  </div>
-                                  <div className="flex justify-between items-center w-full sm:w-auto gap-3">
-                                    <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] md:text-xs font-bold rounded-full">Delivered</span>
-                                    <span className="font-bold text-sm hidden sm:block">₹2,499</span>
-                                    <button className="text-xs text-primary font-bold sm:hidden">View Details</button>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-                </>
-            ) : (
-                <div className="bg-white p-8 md:p-12 rounded-xl shadow-sm text-center min-h-[300px] flex flex-col items-center justify-center">
-                    <Icons.Gift className="w-12 h-12 md:w-16 md:h-16 text-gray-200 mb-4" />
-                    <h3 className="text-lg md:text-xl font-bold text-textMain mb-2">Coming Soon!</h3>
-                    <p className="text-sm text-textMuted">We are working hard to bring you the {activeTab.replace('-', ' ')} feature.</p>
+              <>
+                <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm">
+                  <h3 className="font-serif text-lg md:text-xl font-bold mb-4">Your Orders</h3>
+                  {ordersLoading ? (
+                    <div className="flex justify-center items-center py-10">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                    </div>
+                  ) : orders.length > 0 ? (
+                    <div className="space-y-4">
+                      {orders.map((order) => (
+                        <div key={order.id} className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 p-3 md:p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-4 w-full sm:w-auto">
+                            <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-200 rounded-md shrink-0 flex items-center justify-center">
+                              <Icons.Package className="text-gray-400" />
+                            </div>
+                            <div className="flex-1 sm:hidden">
+                              <h4 className="font-bold text-sm">Order #{order.id}</h4>
+                              <span className="font-bold text-sm">₹{order.total.toLocaleString()}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex-1 hidden sm:block">
+                            <h4 className="font-bold">Order #{order.id}</h4>
+                            <p className="text-sm text-textMuted">Placed on {new Date(order.date).toLocaleDateString()}</p>
+                          </div>
+                          <div className="flex justify-between items-center w-full sm:w-auto gap-3">
+                            <span className={`px-2 py-1 text-[10px] md:text-xs font-bold rounded-full ${order.status === 'Delivered' ? 'bg-green-100 text-green-700' :
+                              order.status === 'Shipped' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
+                              }`}>
+                              {order.status}
+                            </span>
+                            <span className="font-bold text-sm hidden sm:block">₹{order.total.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 text-gray-500">
+                      <Icons.ShoppingBag className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p>No orders yet. Start shopping!</p>
+                    </div>
+                  )}
                 </div>
+              </>
+            ) : (
+              <div className="bg-white p-8 md:p-12 rounded-xl shadow-sm text-center min-h-[300px] flex flex-col items-center justify-center">
+                <Icons.Gift className="w-12 h-12 md:w-16 md:h-16 text-gray-200 mb-4" />
+                <h3 className="text-lg md:text-xl font-bold text-textMain mb-2">Coming Soon!</h3>
+                <p className="text-sm text-textMuted">We are working hard to bring you the {activeTab.replace('-', ' ')} feature.</p>
+              </div>
             )}
           </div>
         </div>

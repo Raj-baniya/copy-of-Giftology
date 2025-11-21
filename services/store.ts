@@ -44,7 +44,7 @@ class StoreService {
     const products = await this.getProducts();
     const index = products.findIndex(p => p.id === id);
     if (index === -1) throw new Error('Product not found');
-    
+
     const updated = { ...products[index], ...updates };
     products[index] = updated;
     localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
@@ -69,21 +69,21 @@ class StoreService {
     await delay(500);
     const usersStr = localStorage.getItem(KEYS.USERS);
     const users: User[] = usersStr ? JSON.parse(usersStr) : [];
-    
+
     const newUser: User = {
       ...user,
       id: Math.random().toString(36).substr(2, 9),
       joinDate: new Date().toISOString(),
       role: 'user',
     };
-    
+
     users.push(newUser);
     localStorage.setItem(KEYS.USERS, JSON.stringify(users));
     return newUser;
   }
 
   async updateUserProfile(userId: string, updates: Partial<User>): Promise<User> {
-     const usersStr = localStorage.getItem(KEYS.USERS);
+    const usersStr = localStorage.getItem(KEYS.USERS);
     let users: User[] = usersStr ? JSON.parse(usersStr) : [];
     const idx = users.findIndex(u => u.id === userId);
     if (idx > -1) {
@@ -95,13 +95,15 @@ class StoreService {
   }
 
   // --- Orders ---
+  // --- Orders ---
   async createOrder(userId: string, items: any[], total: number): Promise<Order> {
     await delay(800);
     const ordersStr = localStorage.getItem(KEYS.ORDERS);
     const orders: Order[] = ordersStr ? JSON.parse(ordersStr) : [];
-    
+
     const newOrder: Order = {
       id: Math.random().toString(36).substr(2, 9).toUpperCase(),
+      userId,
       date: new Date().toISOString(),
       items,
       total,
@@ -109,17 +111,22 @@ class StoreService {
     };
 
     // Save order
-    // In a real app, we'd filter by userId. Here we just store all.
     orders.push(newOrder);
     localStorage.setItem(KEYS.ORDERS, JSON.stringify(orders));
 
     return newOrder;
   }
 
-  async getOrders(): Promise<Order[]> {
+  async getOrders(userId?: string): Promise<Order[]> {
     await delay(300);
     const ordersStr = localStorage.getItem(KEYS.ORDERS);
-    return ordersStr ? JSON.parse(ordersStr) : [];
+    const allOrders: Order[] = ordersStr ? JSON.parse(ordersStr) : [];
+
+    if (userId) {
+      return allOrders.filter(order => order.userId === userId);
+    }
+
+    return allOrders;
   }
 
   async updateOrderStatus(orderId: string, status: Order['status']): Promise<Order> {
@@ -127,7 +134,7 @@ class StoreService {
     const orders = await this.getOrders();
     const index = orders.findIndex(o => o.id === orderId);
     if (index === -1) throw new Error('Order not found');
-    
+
     orders[index].status = status;
     localStorage.setItem(KEYS.ORDERS, JSON.stringify(orders));
     return orders[index];

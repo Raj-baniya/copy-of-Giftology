@@ -22,6 +22,7 @@ export interface User {
 
 export interface Order {
   id: string;
+  userId: string;
   date: string;
   items: CartItem[];
   total: number;
