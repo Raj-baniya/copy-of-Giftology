@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
 import { Icons } from './ui/Icons';
 import { sendMobileNumberToAdmin } from '../services/emailService';
+import { submitContactMessage } from '../services/supabaseService';
 
 const STORAGE_KEY = 'giftology_mobile_submitted';
 
@@ -20,7 +21,6 @@ export const MobileNumberModal = () => {
     // Don't show modal on login, admin-login, checkout, or account pages
     const hideOnPages = ['/login', '/admin-login', '/checkout', '/account'];
     if (hideOnPages.some(path => location.pathname.startsWith(path))) {
-      console.log('MobileNumberModal: Hidden on page:', location.pathname);
       setIsOpen(false);
       return;
     }
@@ -28,20 +28,14 @@ export const MobileNumberModal = () => {
     // Check if mobile number has already been submitted
     const hasSubmitted = localStorage.getItem(STORAGE_KEY);
     const isDismissed = sessionStorage.getItem('giftology_mobile_dismissed');
-    
-    console.log('MobileNumberModal check:', { hasSubmitted, isDismissed, pathname: location.pathname });
-    
+
     // Only show if not submitted and not dismissed this session
     if (!hasSubmitted && !isDismissed) {
       // Show modal after a short delay for better UX
-      console.log('MobileNumberModal: Setting timer to show modal');
       const timer = setTimeout(() => {
-        console.log('MobileNumberModal: Opening modal');
         setIsOpen(true);
       }, 1000);
       return () => clearTimeout(timer);
-    } else {
-      console.log('MobileNumberModal: Not showing - already submitted or dismissed');
     }
   }, [location.pathname]);
 
@@ -69,39 +63,56 @@ export const MobileNumberModal = () => {
     setIsSubmitting(true);
 
     try {
-      // Send user details to admin via email service
-      const result = await sendMobileNumberToAdmin({
+      // 1. Send user details to admin via email service
+      const emailResult = await sendMobileNumberToAdmin({
         name: name.trim(),
         mobileNumber: mobileNumber,
         email: email.trim() || 'Not provided'
       });
-      
-      if (result.success) {
+
+      if (!emailResult.success) {
+        console.error('Email sending failed:', emailResult.error);
+        // We continue even if email fails, to try saving to DB
+      }
+
+      // 2. Save to Supabase Database
+      const dbResult = await submitContactMessage({
+        name: name.trim(),
+        email: email.trim() || undefined,
+        phone: mobileNumber,
+        message: 'Mobile Number Collection Modal',
+        source: 'mobile_modal'
+      });
+
+      if (!dbResult.success) {
+        console.error('Database save failed:', dbResult.error);
+      }
+
+      // If either succeeded, we count it as a success for the user
+      if (emailResult.success || dbResult.success) {
         // Mark as submitted in localStorage
         localStorage.setItem(STORAGE_KEY, 'true');
         localStorage.setItem('giftology_user_name', name.trim());
         localStorage.setItem('giftology_mobile_number', mobileNumber);
         localStorage.setItem('giftology_user_email', email.trim() || '');
         localStorage.setItem('giftology_mobile_submitted_at', new Date().toISOString());
-        
+
         setSubmitSuccess(true);
         setError('');
-        
+
         // Close modal after showing success message
         setTimeout(() => {
           setIsOpen(false);
         }, 2000);
       } else {
-        // Email failed to send
-        const errorMsg = result.error || 'Failed to submit. Please check your connection and try again.';
-        setError(errorMsg);
-        setIsSubmitting(false);
-        console.error('Email service error:', result.error);
+        // Both failed
+        throw new Error('Failed to submit. Please check your connection and try again.');
       }
-      
+
     } catch (error: any) {
       console.error('Unexpected error submitting mobile number:', error);
       setError(error?.message || 'An unexpected error occurred. Please try again.');
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -111,7 +122,6 @@ export const MobileNumberModal = () => {
     if (isSubmitting) return;
     setIsOpen(false);
     // Mark as dismissed for this session only (will show again on next visit)
-    // Only prevent showing again if actually submitted
     sessionStorage.setItem('giftology_mobile_dismissed', 'true');
   };
 
@@ -271,4 +281,3 @@ export const MobileNumberModal = () => {
     </AnimatePresence>
   );
 };
-
