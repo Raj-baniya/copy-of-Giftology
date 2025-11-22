@@ -6,15 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from '../components/ui/Icons';
 import { store } from '../services/store';
 import { LocationPicker } from '../components/LocationPicker';
-import emailjs from '@emailjs/browser';
+import { sendOrderConfirmationToUser, sendOrderNotificationToAdmin, OrderEmailParams } from '../services/emailService';
 
 const steps = ['Shipping', 'Payment', 'Confirmation'];
-
-// EmailJS Configuration - REPLACE WITH YOUR ACTUAL KEYS
-const SERVICE_ID = 'service_xj1ggzr';
-const TEMPLATE_ID_USER = 'template_nvj33wf';
-const TEMPLATE_ID_ADMIN = 'template_wv9628g';
-const PUBLIC_KEY = 'WPCiv1-vH_EzNaI1l';
 
 export const Checkout = () => {
   const { cart, cartTotal, clearCart } = useCart();
@@ -108,40 +102,63 @@ export const Checkout = () => {
             </div>
         `).join('');
 
-      // 2. Send Email to User (Confirmation)
-      // Note: You need to create these templates in EmailJS dashboard
-      const userEmailParams = {
-        to_name: formData.firstName,
-        to_email: formData.email,
-        order_total: cartTotal.toLocaleString(),
-        delivery_date: formData.deliveryDate,
-        order_items: orderItemsHtml, // Pass the HTML string
-        message: `Thank you for your order! We will deliver it on ${formData.deliveryDate} between ${formData.deliveryTime}.`
-      };
-
-      // 3. Send Email to Admin (New Order Alert)
-      const adminEmailParams = {
-        to_email: 'giftology.in14@gmail.com', // Admin Email
-        customer_name: `${formData.firstName} ${formData.lastName}`,
-        customer_phone: formData.phone,
-        customer_email: formData.email,
-        order_total: cartTotal.toLocaleString(),
-        payment_method: paymentMethod,
-        delivery_details: `${formData.address}, ${formData.zipCode} | ${formData.deliveryDate} ${formData.deliveryTime}`,
-        order_items: orderItemsHtml, // Pass the HTML string
-        message: 'New Order Received! Check Admin Panel for details.'
-      };
-
-      // Attempt to send emails
+      // 2. Send Emails using email service
       try {
-        console.log('Sending emails with params:', { userEmailParams, adminEmailParams });
-        await emailjs.send(SERVICE_ID, TEMPLATE_ID_USER, userEmailParams, PUBLIC_KEY);
-        await emailjs.send(SERVICE_ID, TEMPLATE_ID_ADMIN, adminEmailParams, PUBLIC_KEY);
-        console.log('Emails sent successfully');
-        alert('Order placed successfully! Check your email for confirmation.');
+        console.log('Sending order confirmation emails...');
+        
+        // Prepare order email parameters
+        const orderParams = {
+          customerName: `${formData.firstName} ${formData.lastName}`,
+          customerPhone: formData.phone,
+          customerEmail: formData.email,
+          orderTotal: cartTotal.toLocaleString(),
+          paymentMethod: paymentMethod,
+          deliveryDetails: `${formData.address}, ${formData.zipCode} | ${formData.deliveryDate} ${formData.deliveryTime}`,
+          orderItems: orderItemsHtml
+        };
+
+        // Prepare user email params (needs first name only)
+        const userEmailParams: OrderEmailParams = {
+          customerName: formData.firstName, // Just first name for user email
+          customerPhone: formData.phone,
+          customerEmail: formData.email,
+          orderTotal: cartTotal.toLocaleString(),
+          paymentMethod: paymentMethod,
+          deliveryDetails: `${formData.deliveryDate} ${formData.deliveryTime}`,
+          orderItems: orderItemsHtml
+        };
+
+        // Send to user and admin in parallel
+        const [userResult, adminResult] = await Promise.allSettled([
+          sendOrderConfirmationToUser(userEmailParams),
+          sendOrderNotificationToAdmin(orderParams)
+        ]);
+
+        // Check results
+        if (userResult.status === 'fulfilled' && userResult.value.success) {
+          console.log('✅ User confirmation email sent');
+        } else {
+          console.error('❌ User email failed:', userResult.status === 'rejected' ? userResult.reason : userResult.value.error);
+        }
+
+        if (adminResult.status === 'fulfilled' && adminResult.value.success) {
+          console.log('✅ Admin notification email sent');
+        } else {
+          console.error('❌ Admin email failed:', adminResult.status === 'rejected' ? adminResult.reason : adminResult.value.error);
+        }
+
+        // Show success message if at least one email succeeded
+        if (
+          (userResult.status === 'fulfilled' && userResult.value.success) ||
+          (adminResult.status === 'fulfilled' && adminResult.value.success)
+        ) {
+          alert('Order placed successfully! Check your email for confirmation.');
+        } else {
+          alert('Order placed successfully! However, email notifications may have failed. Please check your order in the account section.');
+        }
       } catch (emailError: any) {
         console.error('Failed to send emails:', emailError);
-        alert(`Order placed, but failed to send email: ${emailError?.text || emailError?.message || JSON.stringify(emailError)}`);
+        alert('Order placed successfully! However, email notifications may have failed. Please check your order in the account section.');
       }
 
       setProcessing(false);

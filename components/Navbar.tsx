@@ -96,12 +96,42 @@ export const Navbar = () => {
             </button>
 
             {user ? (
-              <div className="flex items-center gap-4 ml-1">
-                <Link to="/account" className="flex items-center gap-2 text-sm font-medium hover:text-primary">
-                  <div className="w-8 h-8 md:w-9 md:h-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 font-bold border border-gray-200">
+              <div className="relative ml-1 group">
+                <button
+                  className="flex items-center gap-2 text-sm font-medium hover:text-primary focus:outline-none"
+                >
+                  <div className="w-8 h-8 md:w-9 md:h-9 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 font-bold border border-gray-200 transition-colors group-hover:border-primary">
                     {user.displayName ? user.displayName.substring(0, 2).toUpperCase() : 'U'}
                   </div>
-                </Link>
+                </button>
+
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
+                  <div className="px-4 py-2 border-b border-gray-50">
+                    <p className="text-sm font-bold text-gray-900 truncate">{user.displayName}</p>
+                    <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                  </div>
+
+                  <Link to="/account" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary">
+                    <Icons.User className="w-4 h-4" />
+                    My Account
+                  </Link>
+
+                  {user.role === 'admin' && (
+                    <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                      <Icons.Shield className="w-4 h-4" />
+                      Admin Panel
+                    </Link>
+                  )}
+
+                  <button
+                    onClick={() => logout()}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-red-50 text-left"
+                  >
+                    <Icons.LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
               </div>
             ) : (
               <Link to="/login" className="hidden md:block ml-2 px-4 py-2 bg-black text-white rounded-full text-sm font-bold hover:bg-gray-800 transition-all">

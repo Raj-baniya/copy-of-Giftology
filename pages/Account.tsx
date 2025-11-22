@@ -18,7 +18,7 @@ const TabButton = ({ active, onClick, icon: Icon, label }: any) => (
 );
 
 export const Account = () => {
-  const { user, updateProfile, loading } = useAuth();
+  const { user, updateProfile, loading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
@@ -98,6 +98,17 @@ export const Account = () => {
               Member since {new Date(user.joinDate).getFullYear()}
             </div>
           </div>
+          <button
+            onClick={() => {
+              if (window.confirm('Are you sure you want to sign out?')) {
+                logout();
+              }
+            }}
+            className="hidden md:flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg font-bold hover:bg-red-100 transition-colors self-start"
+          >
+            <Icons.LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
         </div>
 
         <div className="flex flex-col md:grid md:grid-cols-4 gap-6">

@@ -12,6 +12,7 @@ import { Checkout } from './pages/Checkout';
 import { Search } from './pages/Search';
 import { AdminLogin } from './pages/AdminLogin';
 import { CartDrawer } from './components/CartDrawer';
+import { MobileNumberModal } from './components/MobileNumberModal';
 
 import { ClerkProvider } from '@clerk/clerk-react';
 
@@ -45,6 +46,7 @@ const App = () => {
             <div className="flex flex-col min-h-screen bg-background font-sans text-textMain">
               <Navbar />
               <CartDrawer />
+              <MobileNumberModal />
               <main className="flex-grow">
                 <Routes>
                   <Route path="/" element={<Home />} />

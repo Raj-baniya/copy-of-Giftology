@@ -53,8 +53,15 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
     }
   };
 
+  // Calculate if we are still syncing local state with Clerk state
+  const isSyncing = isLoaded && (
+    (!!clerkUser && !user) ||
+    (!clerkUser && !!user) ||
+    (!!clerkUser && !!user && clerkUser.id !== user.id)
+  );
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateProfile, loading: !isLoaded }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateProfile, loading: !isLoaded || isSyncing }}>
       {children}
     </AuthContext.Provider>
   );

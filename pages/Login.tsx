@@ -1,14 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SignIn, SignUp } from '@clerk/clerk-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+
+import { useAuth } from '../contexts/AuthContext';
 
 export const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/');
+    }
+  }, [user, loading, navigate]);
+
+  // Hide mobile number modal when on login page
+  useEffect(() => {
+    // Prevent mobile modal from showing on login page
+    sessionStorage.setItem('giftology_mobile_dismissed', 'true');
+  }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12 relative z-50">
+      <div className="w-full max-w-md relative z-50">
         <div className="flex justify-center mb-8">
           <div className="bg-white p-1 rounded-lg shadow-sm border border-gray-200 inline-flex">
             <button
@@ -28,11 +44,19 @@ export const Login = () => {
           </div>
         </div>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center relative z-50">
           {isLogin ? (
-            <SignIn fallbackRedirectUrl="/account" />
+            <SignIn
+              fallbackRedirectUrl="/"
+              signUpUrl="#"
+              afterSignInUrl="/"
+            />
           ) : (
-            <SignUp fallbackRedirectUrl="/account" />
+            <SignUp
+              fallbackRedirectUrl="/"
+              signInUrl="#"
+              afterSignUpUrl="/"
+            />
           )}
         </div>
 
