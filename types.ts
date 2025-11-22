@@ -27,6 +27,17 @@ export interface Order {
   items: CartItem[];
   total: number;
   status: 'Processing' | 'Shipped' | 'Delivered';
+  // New Fields
+  customerName: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  zipCode: string;
+  deliveryDate: string;
+  deliveryTime: string;
+  paymentMethod: 'upi' | 'cod';
+  screenshot?: string; // Base64 string for UPI
 }
 
 export interface Category {

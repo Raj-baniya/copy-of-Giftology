@@ -96,7 +96,7 @@ class StoreService {
 
   // --- Orders ---
   // --- Orders ---
-  async createOrder(userId: string, items: any[], total: number): Promise<Order> {
+  async createOrder(userId: string, items: any[], total: number, details: any): Promise<Order> {
     await delay(800);
     const ordersStr = localStorage.getItem(KEYS.ORDERS);
     const orders: Order[] = ordersStr ? JSON.parse(ordersStr) : [];
@@ -107,7 +107,8 @@ class StoreService {
       date: new Date().toISOString(),
       items,
       total,
-      status: 'Processing'
+      status: 'Processing',
+      ...details
     };
 
     // Save order

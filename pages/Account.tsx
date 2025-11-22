@@ -104,11 +104,7 @@ export const Account = () => {
           {/* Scrollable Tabs for Mobile */}
           <div className="bg-white rounded-xl shadow-sm p-2 md:p-4 flex md:flex-col overflow-x-auto gap-2 md:gap-1 scrollbar-hide sticky top-20 z-20 md:static md:h-fit">
             <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={Icons.Package} label="Overview" />
-            <TabButton active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} icon={Icons.ShoppingBag} label="Orders" />
-            <TabButton active={activeTab === 'recipients'} onClick={() => setActiveTab('recipients')} icon={Icons.User} label="Recipients" />
-            <TabButton active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={Icons.Calendar} label="Calendar" />
             <TabButton active={activeTab === 'spending'} onClick={() => setActiveTab('spending')} icon={Icons.Wallet} label="Spending" />
-            <TabButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={Icons.Settings} label="Settings" />
           </div>
 
           {/* Content Area */}
@@ -158,13 +154,48 @@ export const Account = () => {
                   )}
                 </div>
               </>
-            ) : (
-              <div className="bg-white p-8 md:p-12 rounded-xl shadow-sm text-center min-h-[300px] flex flex-col items-center justify-center">
-                <Icons.Gift className="w-12 h-12 md:w-16 md:h-16 text-gray-200 mb-4" />
-                <h3 className="text-lg md:text-xl font-bold text-textMain mb-2">Coming Soon!</h3>
-                <p className="text-sm text-textMuted">We are working hard to bring you the {activeTab.replace('-', ' ')} feature.</p>
+            ) : activeTab === 'spending' ? (
+              <div className="space-y-6">
+                {/* Spending Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-primary">
+                    <p className="text-sm text-textMuted mb-1">Total Spent</p>
+                    <p className="text-2xl font-bold">₹{orders.reduce((sum, order) => sum + order.total, 0).toLocaleString()}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
+                    <p className="text-sm text-textMuted mb-1">Total Orders</p>
+                    <p className="text-2xl font-bold">{orders.length}</p>
+                  </div>
+                  <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
+                    <p className="text-sm text-textMuted mb-1">Average Order</p>
+                    <p className="text-2xl font-bold">₹{orders.length > 0 ? Math.round(orders.reduce((sum, order) => sum + order.total, 0) / orders.length).toLocaleString() : 0}</p>
+                  </div>
+                </div>
+
+                {/* Recent Spending */}
+                <div className="bg-white p-6 rounded-xl shadow-sm">
+                  <h3 className="font-serif text-xl font-bold mb-4">Spending History</h3>
+                  {orders.length > 0 ? (
+                    <div className="space-y-3">
+                      {orders.slice(0, 10).map((order) => (
+                        <div key={order.id} className="flex justify-between items-center p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                          <div>
+                            <p className="font-medium">Order #{order.id}</p>
+                            <p className="text-xs text-textMuted">{new Date(order.date).toLocaleDateString()}</p>
+                          </div>
+                          <p className="font-bold text-lg">₹{order.total.toLocaleString()}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 text-gray-500">
+                      <Icons.Wallet className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p>No spending data yet</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
