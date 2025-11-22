@@ -1,144 +1,141 @@
 import { Product, User, Order } from '../types';
-import { INITIAL_PRODUCTS } from './mockData';
-
-// Helper to simulate delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Keys
-const KEYS = {
-  PRODUCTS: 'giftology_products',
-  USERS: 'giftology_users',
-  ORDERS: 'giftology_orders',
-  CURRENT_USER: 'giftology_current_user',
-};
+import * as supabaseService from './supabaseService';
 
 class StoreService {
   constructor() {
-    this.init();
-  }
-
-  init() {
-    if (!localStorage.getItem(KEYS.PRODUCTS)) {
-      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
-    }
+    // No init needed for Supabase
   }
 
   // --- Products ---
   async getProducts(): Promise<Product[]> {
-    await delay(300);
-    const data = localStorage.getItem(KEYS.PRODUCTS);
-    return data ? JSON.parse(data) : [];
+    const dbProducts = await supabaseService.getProducts();
+    // Map DB product to Frontend Product type
+    return dbProducts.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      description: p.description,
+      price: p.price,
+      imageUrl: p.images?.[0] || '',
+      category: p.categories?.slug || 'uncategorized',
+      trending: p.is_featured,
+      stock: p.stock_quantity
+    }));
+  }
+
+  async getCategories() {
+    return await supabaseService.getCategories();
   }
 
   async addProduct(product: Omit<Product, 'id'>): Promise<Product> {
-    await delay(500);
-    const products = await this.getProducts();
-    const newProduct = { ...product, id: Math.random().toString(36).substr(2, 9) };
-    products.push(newProduct);
-    localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
-    return newProduct;
+    const newProduct = await supabaseService.addProduct(product);
+    return {
+      id: newProduct.id,
+      name: newProduct.name,
+      slug: newProduct.slug,
+      description: newProduct.description,
+      price: newProduct.price,
+      imageUrl: newProduct.images?.[0] || '',
+      category: product.category, // Optimistic
+      trending: newProduct.is_featured,
+      stock: newProduct.stock_quantity
+    };
   }
 
   async updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
-    await delay(300);
-    const products = await this.getProducts();
-    const index = products.findIndex(p => p.id === id);
-    if (index === -1) throw new Error('Product not found');
-
-    const updated = { ...products[index], ...updates };
-    products[index] = updated;
-    localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
-    return updated;
+    const updated = await supabaseService.updateProduct(id, updates);
+    return {
+      id: updated.id,
+      name: updated.name,
+      slug: updated.slug,
+      description: updated.description,
+      price: updated.price,
+      imageUrl: updated.images?.[0] || '',
+      category: updates.category || 'uncategorized',
+      trending: updated.is_featured,
+      stock: updated.stock_quantity
+    };
   }
 
   async deleteProduct(id: string): Promise<void> {
-    await delay(300);
-    const products = await this.getProducts();
-    const filtered = products.filter(p => p.id !== id);
-    localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(filtered));
+    await supabaseService.deleteProduct(id);
   }
 
   // --- Users ---
+  // Users are handled by Clerk + Supabase Auth, but we keep this for compatibility if used elsewhere
   async getUser(email: string): Promise<User | null> {
-    const usersStr = localStorage.getItem(KEYS.USERS);
-    const users: User[] = usersStr ? JSON.parse(usersStr) : [];
-    return users.find(u => u.email === email) || null;
+    // This is legacy from mock store. Ideally we use useAuth() context.
+    return null;
   }
 
   async createUser(user: Omit<User, 'id' | 'joinDate' | 'role'>): Promise<User> {
-    await delay(500);
-    const usersStr = localStorage.getItem(KEYS.USERS);
-    const users: User[] = usersStr ? JSON.parse(usersStr) : [];
-
-    const newUser: User = {
-      ...user,
-      id: Math.random().toString(36).substr(2, 9),
-      joinDate: new Date().toISOString(),
-      role: 'user',
-    };
-
-    users.push(newUser);
-    localStorage.setItem(KEYS.USERS, JSON.stringify(users));
-    return newUser;
+    // Legacy
+    return {} as User;
   }
 
   async updateUserProfile(userId: string, updates: Partial<User>): Promise<User> {
-    const usersStr = localStorage.getItem(KEYS.USERS);
-    let users: User[] = usersStr ? JSON.parse(usersStr) : [];
-    const idx = users.findIndex(u => u.id === userId);
-    if (idx > -1) {
-      users[idx] = { ...users[idx], ...updates };
-      localStorage.setItem(KEYS.USERS, JSON.stringify(users));
-      return users[idx];
-    }
-    throw new Error('User not found');
+    // Legacy
+    return {} as User;
   }
 
   // --- Orders ---
-  // --- Orders ---
   async createOrder(userId: string, items: any[], total: number, details: any): Promise<Order> {
-    await delay(800);
-    const ordersStr = localStorage.getItem(KEYS.ORDERS);
-    const orders: Order[] = ordersStr ? JSON.parse(ordersStr) : [];
+    const orderData = {
+      user_id: userId, // Might be null for guest
+      total: total,
+      status: 'Processing',
+      shipping_address: details.shippingAddress,
+      payment_method: details.paymentMethod,
+      guest_info: !userId ? details.guestInfo : null
+    };
 
-    const newOrder: Order = {
-      id: Math.random().toString(36).substr(2, 9).toUpperCase(),
+    const result = await supabaseService.createOrder(orderData, items);
+    if (!result.success) throw result.error;
+
+    // Return a frontend-compatible Order object
+    return {
+      id: result.order.id,
       userId,
-      date: new Date().toISOString(),
+      date: result.order.created_at,
       items,
       total,
       status: 'Processing',
       ...details
     };
-
-    // Save order
-    orders.push(newOrder);
-    localStorage.setItem(KEYS.ORDERS, JSON.stringify(orders));
-
-    return newOrder;
   }
 
   async getOrders(userId?: string): Promise<Order[]> {
-    await delay(300);
-    const ordersStr = localStorage.getItem(KEYS.ORDERS);
-    const allOrders: Order[] = ordersStr ? JSON.parse(ordersStr) : [];
+    // If userId is provided, we should fetch user's orders.
+    // If not, maybe fetch all (admin)? But getAdminOrders exists.
+    // For now, let's use getAdminOrders if no userId, or implement getUserOrders.
 
-    if (userId) {
-      return allOrders.filter(order => order.userId === userId);
-    }
+    // Since this method signature was generic, let's map it to getAdminOrders for now
+    // as it's primarily used in Admin.tsx.
+    // TODO: Separate user orders from admin orders.
 
-    return allOrders;
+    const dbOrders = await supabaseService.getAdminOrders();
+    return dbOrders.map((o: any) => ({
+      id: o.id,
+      userId: o.user_id,
+      date: o.created_at,
+      items: o.order_items.map((i: any) => ({
+        id: i.product_id,
+        name: i.products?.name || 'Unknown Product',
+        price: i.unit_price,
+        quantity: i.quantity
+      })),
+      total: o.total,
+      status: o.status,
+      shippingAddress: o.shipping_address
+    }));
   }
 
   async updateOrderStatus(orderId: string, status: Order['status']): Promise<Order> {
-    await delay(300);
-    const orders = await this.getOrders();
-    const index = orders.findIndex(o => o.id === orderId);
-    if (index === -1) throw new Error('Order not found');
-
-    orders[index].status = status;
-    localStorage.setItem(KEYS.ORDERS, JSON.stringify(orders));
-    return orders[index];
+    const updated = await supabaseService.updateOrderStatus(orderId, status);
+    return {
+      id: updated.id,
+      status: updated.status
+    } as any;
   }
 }
 

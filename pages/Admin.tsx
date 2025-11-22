@@ -2,30 +2,52 @@ import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { store } from '../services/store';
-import { getContactMessages } from '../services/supabaseService';
+import { getContactMessages, seedDatabase } from '../services/supabaseService';
 import { supabase } from '../services/supabaseClient';
 import { Product, Order } from '../types';
 import { Icons } from '../components/ui/Icons';
 import { useForm } from 'react-hook-form';
-import { CATEGORIES } from '../services/mockData';
+
+import { Category } from '../types';
 
 export const Admin = () => {
     const { user } = useAuth();
     const [products, setProducts] = useState<Product[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [leads, setLeads] = useState<any[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'leads'>('inventory');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Omit<Product, 'id'>>();
 
     const [error, setError] = useState<string | null>(null);
+    const [seeding, setSeeding] = useState(false);
+
+    const handleSeed = async () => {
+        if (confirm('Are you sure you want to seed the database? This will add initial products.')) {
+            setSeeding(true);
+            const result = await seedDatabase();
+            if (result.success) {
+                await loadData();
+                alert('Database seeded successfully!');
+            } else {
+                alert('Seeding completed with errors:\n' + result.errors.join('\n'));
+                await loadData(); // Load whatever succeeded
+            }
+            setSeeding(false);
+        }
+    };
 
     const loadData = async () => {
         try {
             setError(null);
-            const productData = await store.getProducts();
+            const [productData, categoryData] = await Promise.all([
+                store.getProducts(),
+                store.getCategories()
+            ]);
             setProducts(productData);
+            setCategories(categoryData);
 
             const orderData = await store.getOrders();
             // Sort orders by newest first
@@ -145,19 +167,28 @@ export const Admin = () => {
     return (
         <div className="min-h-screen bg-gray-100 p-4 md:p-8">
             <div className="max-w-7xl mx-auto">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-2xl md:text-3xl font-serif font-bold">Admin Dashboard</h1>
                         <p className="text-textMuted text-sm md:text-base">Manage products and view orders</p>
                     </div>
-                    {activeTab === 'inventory' && (
+                    <div className="flex gap-2">
                         <button
-                            onClick={() => openModal()}
-                            className="w-full md:w-auto bg-black text-white px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-gray-800 shadow-lg transition-transform active:scale-95"
+                            onClick={handleSeed}
+                            disabled={seeding}
+                            className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-green-700 shadow-lg transition-transform active:scale-95 disabled:opacity-50"
                         >
-                            <Icons.Plus className="w-5 h-5" /> Add Product
+                            {seeding ? 'Seeding...' : 'Seed Database'}
                         </button>
-                    )}
+                        {activeTab === 'inventory' && (
+                            <button
+                                onClick={() => openModal()}
+                                className="w-full md:w-auto bg-black text-white px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-gray-800 shadow-lg transition-transform active:scale-95"
+                            >
+                                <Icons.Plus className="w-5 h-5" /> Add Product
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Tabs */}
@@ -464,7 +495,7 @@ export const Admin = () => {
                                 <div>
                                     <label className="block text-sm font-bold mb-1">Category</label>
                                     <select {...register('category', { required: true })} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900">
-                                        {CATEGORIES.map(cat => (
+                                        {categories.map(cat => (
                                             <option key={cat.id} value={cat.slug}>{cat.name}</option>
                                         ))}
                                     </select>

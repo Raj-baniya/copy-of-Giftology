@@ -1,16 +1,16 @@
-import { 
-  ShoppingBag, 
-  User, 
-  Menu, 
-  X, 
-  Heart, 
-  Gift, 
-  Minus, 
-  Plus, 
-  Trash2, 
-  CreditCard, 
-  CheckCircle, 
-  Search, 
+import {
+  ShoppingBag,
+  User,
+  Menu,
+  X,
+  Heart,
+  Gift,
+  Minus,
+  Plus,
+  Trash2,
+  CreditCard,
+  CheckCircle,
+  Search,
   LogOut,
   Edit2,
   Package,
@@ -26,7 +26,8 @@ import {
   Phone,
   Mail,
   Smartphone,
-  Banknote
+  Banknote,
+  ArrowRight
 } from 'lucide-react';
 
 export const Icons = {
@@ -57,5 +58,6 @@ export const Icons = {
   Phone,
   Mail,
   Smartphone,
-  Banknote
+  Banknote,
+  ArrowRight
 };

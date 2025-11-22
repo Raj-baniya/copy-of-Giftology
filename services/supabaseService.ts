@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { INITIAL_PRODUCTS, CATEGORIES } from './mockData';
 
 // Types
 export interface Product {
@@ -170,4 +171,157 @@ export const getContactMessages = async () => {
         return [];
     }
     return data;
+};
+
+// --- Admin Product Management ---
+
+export const addProduct = async (product: any) => {
+    // Generate a slug if not provided
+    const slug = product.slug || product.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+
+    // Map frontend product structure to DB structure
+    // Note: You might need to adjust this depending on your exact DB schema vs Frontend types
+    const dbProduct = {
+        name: product.name,
+        slug: slug,
+        description: product.description,
+        price: product.price,
+        stock_quantity: 100, // Default for now
+        images: [product.imageUrl], // Assuming frontend sends imageUrl
+        category_id: product.category_id, // This needs to be resolved from category slug/name if not provided
+        is_featured: product.trending || false,
+        is_active: true
+    };
+
+    // If category_id is missing but category slug is present, fetch category_id
+    if (!dbProduct.category_id && product.category) {
+        const { data: cat } = await supabase.from('categories').select('id').eq('slug', product.category).single();
+        if (cat) dbProduct.category_id = cat.id;
+    }
+
+    const { data, error } = await supabase
+        .from('products')
+        .insert([dbProduct])
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error adding product:', error);
+        throw error;
+    }
+    return data;
+};
+
+export const updateProduct = async (id: string, updates: any) => {
+    const dbUpdates: any = {};
+    if (updates.name) dbUpdates.name = updates.name;
+    if (updates.description) dbUpdates.description = updates.description;
+    if (updates.price) dbUpdates.price = updates.price;
+    if (updates.imageUrl) dbUpdates.images = [updates.imageUrl];
+    if (updates.trending !== undefined) dbUpdates.is_featured = updates.trending;
+
+    const { data, error } = await supabase
+        .from('products')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating product:', error);
+        throw error;
+    }
+    return data;
+};
+
+export const deleteProduct = async (id: string) => {
+    const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error deleting product:', error);
+        throw error;
+    }
+};
+
+export const updateOrderStatus = async (id: string, status: string) => {
+    const { data, error } = await supabase
+        .from('orders')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating order status:', error);
+        throw error;
+    }
+    return data;
+};
+
+export const seedDatabase = async () => {
+    console.log('Starting database seed...');
+    const errors: string[] = [];
+
+    // 1. Seed Categories
+    for (const cat of CATEGORIES) {
+        // Try to insert only if it doesn't exist (manual check to be safe)
+        const { data: existing } = await supabase.from('categories').select('id').eq('slug', cat.slug).single();
+
+        if (!existing) {
+            const { error } = await supabase
+                .from('categories')
+                .insert({
+                    name: cat.name,
+                    slug: cat.slug,
+                    image_url: cat.imageUrl,
+                    is_active: true
+                });
+
+            if (error) {
+                console.error(`Error seeding category ${cat.name}:`, error);
+                errors.push(`Category ${cat.name}: ${error.message}`);
+            }
+        }
+    }
+
+    // 2. Seed Products
+    for (const prod of INITIAL_PRODUCTS) {
+        const { data: catData } = await supabase
+            .from('categories')
+            .select('id')
+            .eq('slug', prod.category)
+            .single();
+
+        if (catData) {
+            const { data: existingProd } = await supabase.from('products').select('id').eq('slug', prod.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '')).single();
+
+            if (!existingProd) {
+                const { error } = await supabase
+                    .from('products')
+                    .insert({
+                        name: prod.name,
+                        slug: prod.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, ''),
+                        description: prod.description,
+                        price: prod.price,
+                        stock_quantity: 50,
+                        images: [prod.imageUrl],
+                        category_id: catData.id,
+                        is_featured: prod.trending || false,
+                        is_active: true
+                    });
+
+                if (error) {
+                    console.error(`Error seeding product ${prod.name}:`, error);
+                    errors.push(`Product ${prod.name}: ${error.message}`);
+                }
+            }
+        } else {
+            errors.push(`Skipped product ${prod.name}: Category ${prod.category} not found`);
+        }
+    }
+
+    return { success: errors.length === 0, errors };
 };

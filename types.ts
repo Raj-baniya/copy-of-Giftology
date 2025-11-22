@@ -1,11 +1,13 @@
 export interface Product {
   id: string;
   name: string;
+  slug?: string;
   price: number;
   category: string;
   imageUrl: string;
   description: string;
   trending?: boolean;
+  stock?: number;
 }
 
 export interface CartItem extends Product {
@@ -22,22 +24,29 @@ export interface User {
 
 export interface Order {
   id: string;
-  userId: string;
+  userId: string | null; // Allow null for guests
   date: string;
   items: CartItem[];
   total: number;
   status: 'Processing' | 'Shipped' | 'Delivered';
   // New Fields
-  customerName: string;
-  phone: string;
-  email: string;
-  address: string;
-  city: string;
-  zipCode: string;
-  deliveryDate: string;
-  deliveryTime: string;
-  paymentMethod: 'upi' | 'cod';
+  customerName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  zipCode?: string;
+  deliveryDate?: string;
+  deliveryTime?: string;
+  paymentMethod?: 'upi' | 'cod';
   screenshot?: string; // Base64 string for UPI
+  shippingAddress?: string;
+  guestInfo?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  };
 }
 
 export interface Category {

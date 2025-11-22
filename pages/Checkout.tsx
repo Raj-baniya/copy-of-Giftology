@@ -77,6 +77,7 @@ export const Checkout = () => {
 
     try {
       // 1. Create Order in Store
+      // 1. Create Order in Store (Supabase)
       const orderDetails = {
         customerName: `${formData.firstName} ${formData.lastName}`,
         phone: formData.phone,
@@ -87,12 +88,18 @@ export const Checkout = () => {
         deliveryDate: formData.deliveryDate,
         deliveryTime: formData.deliveryTime,
         paymentMethod,
-        screenshot: screenshot || undefined
+        screenshot: screenshot || undefined,
+        shippingAddress: `${formData.address}, ${formData.city} - ${formData.zipCode}`,
+        guestInfo: !user ? {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone
+        } : undefined
       };
 
-      if (user) {
-        await store.createOrder(user.id, cart, cartTotal, orderDetails);
-      }
+      // Always create order, pass user.id if logged in, otherwise null
+      await store.createOrder(user?.id || null, cart, cartTotal, orderDetails);
 
       // Generate HTML for Order Items (Simplified for EmailJS limit)
       const orderItemsHtml = cart.map(item => `
@@ -105,7 +112,7 @@ export const Checkout = () => {
       // 2. Send Emails using email service
       try {
         console.log('Sending order confirmation emails...');
-        
+
         // Prepare order email parameters
         const orderParams = {
           customerName: `${formData.firstName} ${formData.lastName}`,
