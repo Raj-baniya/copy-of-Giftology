@@ -29,20 +29,15 @@ export const Home = () => {
       {/* Hero Section */}
       <section className="relative h-[100dvh] w-full overflow-hidden">
 
-        {/* Background Video */}
+        {/* Background Image with Animation */}
         <div className="absolute inset-0 w-full h-full">
-          <div className="absolute inset-0 bg-black/50 z-10" /> {/* Overlay for readability */}
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-            poster="https://images.pexels.com/photos/313700/pexels-photo-313700.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"
-          >
-            <source src="https://cdn.pixabay.com/video/2022/12/13/142727-781277679_large.mp4" type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+          <div className="absolute inset-0 bg-black/40 z-10" /> {/* Overlay for readability */}
+          <div
+            className="w-full h-full bg-cover bg-center animate-slow-zoom"
+            style={{
+              backgroundImage: 'url(https://images.pexels.com/photos/264771/pexels-photo-264771.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&dpr=2)'
+            }}
+          />
         </div>
 
         {/* Content */}
