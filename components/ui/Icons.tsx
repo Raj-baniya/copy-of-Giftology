@@ -27,7 +27,9 @@ import {
   Mail,
   Smartphone,
   Banknote,
-  ArrowRight
+  ArrowRight,
+  MessageSquare,
+  AlertCircle
 } from 'lucide-react';
 
 export const Icons = {
@@ -59,5 +61,7 @@ export const Icons = {
   Mail,
   Smartphone,
   Banknote,
-  ArrowRight
+  ArrowRight,
+  MessageSquare,
+  AlertCircle
 };

@@ -40,7 +40,7 @@ export interface Order {
   deliveryTime?: string;
   paymentMethod?: 'upi' | 'cod';
   screenshot?: string; // Base64 string for UPI
-  shippingAddress?: string;
+  shippingAddress?: any;
   guestInfo?: {
     firstName: string;
     lastName: string;

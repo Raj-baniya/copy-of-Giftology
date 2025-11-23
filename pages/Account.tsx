@@ -17,6 +17,86 @@ const TabButton = ({ active, onClick, icon: Icon, label }: any) => (
   </button>
 );
 
+const ChangePasswordForm = () => {
+  const { changePassword } = useAuth();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage({ type: '', text: '' });
+
+    if (password.length < 6) {
+      setMessage({ type: 'error', text: 'Password must be at least 6 characters long.' });
+      return;
+    }
+    if (password !== confirmPassword) {
+      setMessage({ type: 'error', text: 'Passwords do not match.' });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await changePassword(password);
+      if (error) throw error;
+      setMessage({ type: 'success', text: 'Password updated successfully!' });
+      setPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to update password.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {message.text && (
+        <div className={`p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+          {message.text}
+        </div>
+      )}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+        <div className="relative">
+          <Icons.Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            placeholder="••••••••"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+        <div className="relative">
+          <Icons.Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="password"
+            required
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            placeholder="••••••••"
+          />
+        </div>
+      </div>
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-black text-white py-2 rounded-lg font-bold hover:bg-gray-800 transition-colors disabled:opacity-70"
+      >
+        {loading ? 'Updating...' : 'Update Password'}
+      </button>
+    </form>
+  );
+};
+
 export const Account = () => {
   const { user, updateProfile, loading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
@@ -116,6 +196,7 @@ export const Account = () => {
           <div className="bg-white rounded-xl shadow-sm p-2 md:p-4 flex md:flex-col overflow-x-auto gap-2 md:gap-1 scrollbar-hide sticky top-20 z-20 md:static md:h-fit">
             <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={Icons.Package} label="Overview" />
             <TabButton active={activeTab === 'spending'} onClick={() => setActiveTab('spending')} icon={Icons.Wallet} label="Spending" />
+            <TabButton active={activeTab === 'security'} onClick={() => setActiveTab('security')} icon={Icons.Shield} label="Security" />
           </div>
 
           {/* Content Area */}
@@ -205,6 +286,11 @@ export const Account = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            ) : activeTab === 'security' ? (
+              <div className="bg-white p-6 rounded-xl shadow-sm max-w-lg">
+                <h3 className="font-serif text-xl font-bold mb-6">Security Settings</h3>
+                <ChangePasswordForm />
               </div>
             ) : null}
           </div>

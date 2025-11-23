@@ -1,66 +1,226 @@
 import React, { useState, useEffect } from 'react';
-import { SignIn, SignUp } from '@clerk/clerk-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { Icons } from '../components/ui/Icons';
 
 export const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isOtpLogin, setIsOtpLogin] = useState(false); // New state for OTP Login mode
+  const [otpSent, setOtpSent] = useState(false); // New state for OTP sent status
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [otp, setOtp] = useState(''); // New state for OTP input
+
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, loading } = useAuth();
+  const { user, login, register, loginWithOtp, verifyOtp } = useAuth();
 
   useEffect(() => {
-    if (!loading && user) {
+    if (user) {
       navigate('/');
     }
-  }, [user, loading, navigate]);
+  }, [user, navigate]);
 
-  // Hide mobile number modal when on login page
-  useEffect(() => {
-    // Prevent mobile modal from showing on login page
-    sessionStorage.setItem('giftology_mobile_dismissed', 'true');
-  }, []);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    try {
+      if (isOtpLogin) {
+        // OTP Flow
+        if (!otpSent) {
+          // Send OTP
+          const { error } = await loginWithOtp(email);
+          if (error) throw error;
+          setOtpSent(true);
+          setMessage(`OTP sent to ${email}. Please check your inbox.`);
+        } else {
+          // Verify OTP
+          const { error } = await verifyOtp(email, otp);
+          if (error) throw error;
+          // Success handled by AuthContext updating user
+        }
+      } else if (isLogin) {
+        // Password Login
+        const { error } = await login(email, password);
+        if (error) throw error;
+      } else {
+        // Registration
+        const { error } = await register(name, email, password);
+        if (error) throw error;
+        setMessage('Registration successful! Please check your email to verify your account.');
+        setIsLogin(true);
+      }
+    } catch (err: any) {
+      console.error('Auth error:', err);
+      setError(err.message || 'Authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetState = () => {
+    setError('');
+    setMessage('');
+    setOtpSent(false);
+    setOtp('');
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12 relative z-50">
-      <div className="w-full max-w-md relative z-50">
-        <div className="flex justify-center mb-8">
-          <div className="bg-white p-1 rounded-lg shadow-sm border border-gray-200 inline-flex">
-            <button
-              onClick={() => setIsLogin(true)}
-              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${isLogin ? 'bg-primary text-white shadow-sm' : 'text-textMuted hover:text-textMain'
-                }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => setIsLogin(false)}
-              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${!isLogin ? 'bg-primary text-white shadow-sm' : 'text-textMuted hover:text-textMain'
-                }`}
-            >
-              Sign Up
-            </button>
+      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-serif font-bold text-textMain mb-2">
+            {isOtpLogin ? 'Login with OTP' : (isLogin ? 'Welcome Back' : 'Join Giftology')}
+          </h1>
+          <p className="text-textMuted">
+            {isOtpLogin
+              ? (otpSent ? 'Enter the code sent to your email' : 'Sign in without a password')
+              : (isLogin ? 'Sign in to access your account' : 'Create an account to start gifting')}
+          </p>
+        </div>
+
+        {/* Main Toggle (Sign In / Sign Up) - Hide in OTP mode */}
+        {!isOtpLogin && (
+          <div className="flex justify-center mb-8">
+            <div className="bg-gray-100 p-1 rounded-lg inline-flex w-full">
+              <button
+                onClick={() => { setIsLogin(true); resetState(); }}
+                className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${isLogin ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => { setIsLogin(false); resetState(); }}
+                className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${!isLogin ? 'bg-white text-black shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Sign Up
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="flex justify-center relative z-50">
-          {isLogin ? (
-            <SignIn
-              fallbackRedirectUrl="/"
-              signUpUrl="#"
-              afterSignInUrl="/"
-            />
-          ) : (
-            <SignUp
-              fallbackRedirectUrl="/"
-              signInUrl="#"
-              afterSignUpUrl="/"
-            />
+        {error && (
+          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-6 flex items-center gap-2">
+            <Icons.X className="w-4 h-4" />
+            {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="bg-green-50 text-green-600 p-3 rounded-lg text-sm mb-6 flex items-center gap-2">
+            <Icons.CheckCircle className="w-4 h-4" />
+            {message}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Name Field (Only for Registration) */}
+          {!isLogin && !isOtpLogin && (
+            <div>
+              <label className="block text-sm font-bold mb-1">Full Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-primary outline-none"
+                placeholder="John Doe"
+                required={!isLogin}
+              />
+            </div>
           )}
+
+          {/* Email Field (Always visible unless OTP sent) */}
+          {(!isOtpLogin || !otpSent) && (
+            <div>
+              <label className="block text-sm font-bold mb-1">Email Address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-primary outline-none"
+                placeholder="you@example.com"
+                required
+                disabled={otpSent}
+              />
+            </div>
+          )}
+
+          {/* Password Field (Only for Password Login/Register) */}
+          {!isOtpLogin && (
+            <div>
+              <label className="block text-sm font-bold mb-1">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-primary outline-none"
+                placeholder="••••••••"
+                required
+                minLength={6}
+              />
+            </div>
+          )}
+
+          {/* OTP Input (Only if OTP sent) */}
+          {isOtpLogin && otpSent && (
+            <div>
+              <label className="block text-sm font-bold mb-1">Enter OTP</label>
+              <input
+                type="text"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="w-full border border-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-primary outline-none text-center tracking-widest text-lg"
+                placeholder="123456"
+                required
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setOtpSent(false)}
+                className="text-xs text-primary hover:underline mt-2"
+              >
+                Change Email / Resend
+              </button>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-black text-white py-3 rounded-lg font-bold hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+            ) : (
+              <>
+                {isOtpLogin
+                  ? (otpSent ? 'Verify & Login' : 'Send Login Link / OTP')
+                  : (isLogin ? 'Sign In' : 'Create Account')}
+                <Icons.ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
+
+        {/* OTP Toggle Button */}
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => { setIsOtpLogin(!isOtpLogin); resetState(); }}
+            className="text-sm font-medium text-gray-600 hover:text-black underline transition-colors"
+          >
+            {isOtpLogin ? 'Back to Password Login' : 'Login with OTP / Magic Link'}
+          </button>
         </div>
 
-        <div className="mt-8 text-center">
+        <div className="mt-4 text-center border-t pt-6">
           <button onClick={() => navigate('/admin-login')} className="text-xs text-gray-400 hover:text-primary transition-colors">
             Admin Access
           </button>

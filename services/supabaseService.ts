@@ -160,6 +160,20 @@ export const getAdminOrders = async () => {
     return data;
 };
 
+export const getUserOrders = async (userId: string) => {
+    const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*, products(name))')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching user orders:', error);
+        return [];
+    }
+    return data;
+};
+
 export const getContactMessages = async () => {
     const { data, error } = await supabase
         .from('contact_messages')

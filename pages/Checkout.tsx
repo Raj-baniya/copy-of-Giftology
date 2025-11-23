@@ -89,7 +89,13 @@ export const Checkout = () => {
         deliveryTime: formData.deliveryTime,
         paymentMethod,
         screenshot: screenshot || undefined,
-        shippingAddress: `${formData.address}, ${formData.city} - ${formData.zipCode}`,
+        shippingAddress: {
+          street: formData.address,
+          city: formData.city,
+          zipCode: formData.zipCode,
+          state: 'Maharashtra', // Defaulting since we check for Mumbai
+          country: 'India'
+        },
         guestInfo: !user ? {
           firstName: formData.firstName,
           lastName: formData.lastName,
@@ -126,7 +132,7 @@ export const Checkout = () => {
 
         // Prepare user email params (needs first name only)
         const userEmailParams: OrderEmailParams = {
-          customerName: formData.firstName, // Just first name for user email
+          customerName: `${formData.firstName} ${formData.lastName}`, // Send Full Name
           customerPhone: formData.phone,
           customerEmail: formData.email,
           orderTotal: cartTotal.toLocaleString(),
@@ -138,6 +144,7 @@ export const Checkout = () => {
         // Send to user and admin in parallel
         const [userResult, adminResult] = await Promise.allSettled([
           sendOrderConfirmationToUser(userEmailParams),
+          // Promise.resolve({ success: true }), // Mock success removed
           sendOrderNotificationToAdmin(orderParams)
         ]);
 
@@ -172,9 +179,9 @@ export const Checkout = () => {
       setCurrentStep(2);
       clearCart();
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Order processing failed:', error);
-      alert('Something went wrong. Please try again.');
+      alert(`Something went wrong: ${error.message || JSON.stringify(error)}. Please try again.`);
       setProcessing(false);
     }
   };

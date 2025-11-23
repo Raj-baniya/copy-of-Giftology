@@ -105,15 +105,13 @@ class StoreService {
   }
 
   async getOrders(userId?: string): Promise<Order[]> {
-    // If userId is provided, we should fetch user's orders.
-    // If not, maybe fetch all (admin)? But getAdminOrders exists.
-    // For now, let's use getAdminOrders if no userId, or implement getUserOrders.
+    let dbOrders;
+    if (userId) {
+      dbOrders = await supabaseService.getUserOrders(userId);
+    } else {
+      dbOrders = await supabaseService.getAdminOrders();
+    }
 
-    // Since this method signature was generic, let's map it to getAdminOrders for now
-    // as it's primarily used in Admin.tsx.
-    // TODO: Separate user orders from admin orders.
-
-    const dbOrders = await supabaseService.getAdminOrders();
     return dbOrders.map((o: any) => ({
       id: o.id,
       userId: o.user_id,

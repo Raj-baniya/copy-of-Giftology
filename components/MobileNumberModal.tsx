@@ -1,111 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
 import { Icons } from './ui/Icons';
-import { sendMobileNumberToAdmin } from '../services/emailService';
+import { sendFeedbackToAdmin, sendOtpToUser } from '../services/emailService';
 import { submitContactMessage } from '../services/supabaseService';
-import { auth } from '../services/firebaseConfig';
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
-
-const STORAGE_KEY = 'giftology_mobile_submitted';
 
 export const MobileNumberModal = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [showOtpInput, setShowOtpInput] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-
+  const [message, setMessage] = useState(''); // New state for feedback
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState('');
-  const location = useLocation();
+  const [title, setTitle] = useState('We Value Your Feedback'); // Dynamic title
+
+  // OTP States
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
 
   useEffect(() => {
-    // Don't show modal on login, admin-login, checkout, or account pages
-    const hideOnPages = ['/login', '/admin-login', '/checkout', '/account'];
-    if (hideOnPages.some(path => location.pathname.startsWith(path))) {
-      setIsOpen(false);
-      return;
-    }
-
-    // Check if mobile number has already been submitted
-    const hasSubmitted = localStorage.getItem(STORAGE_KEY);
-
-    // Only show if not submitted (Removed session dismissal check to make it mandatory)
+    // Check if already submitted in this session (only for auto-popup)
+    const hasSubmitted = sessionStorage.getItem('mobile_submitted');
     if (!hasSubmitted) {
       const timer = setTimeout(() => {
         setIsOpen(true);
-      }, 1000);
+      }, 3000); // Show after 3 seconds
       return () => clearTimeout(timer);
     }
-  }, [location.pathname]);
+  }, []);
 
-  const setupRecaptcha = () => {
-    if (!auth) {
-      console.error('Firebase Auth not initialized');
-      setError('Authentication service unavailable.');
-      return;
-    }
-    const container = document.getElementById('recaptcha-container');
-    if (!container) {
-      console.error('Recaptcha container not found');
-      return;
-    }
-
-    if (!(window as any).recaptchaVerifier) {
-      try {
-        (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          'size': 'invisible',
-          'callback': () => {
-            // reCAPTCHA solved, allow signInWithPhoneNumber.
-            console.log('Recaptcha solved');
-          },
-          'expired-callback': () => {
-            console.log('Recaptcha expired');
-          }
-        });
-      } catch (err) {
-        console.error('Error initializing Recaptcha:', err);
+  // Listen for custom event to open modal
+  useEffect(() => {
+    const handleOpenModal = (event: any) => {
+      setIsOpen(true);
+      if (event.detail?.title) {
+        setTitle(event.detail.title);
+      } else {
+        setTitle('We Value Your Feedback');
       }
-    }
-  };
+    };
+
+    window.addEventListener('openFeedbackModal', handleOpenModal);
+    return () => window.removeEventListener('openFeedbackModal', handleOpenModal);
+  }, []);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!name.trim()) {
-      setError('Please enter your name.');
+    if (mobileNumber.length !== 10) {
+      setError('Please enter a valid 10-digit mobile number.');
       return;
     }
-    if (mobileNumber.length !== 10 || !/^\d{10}$/.test(mobileNumber)) {
-      setError('Please enter a valid 10-digit mobile number.');
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!message.trim()) {
+      setError('Please enter your feedback message.');
       return;
     }
 
     setIsSubmitting(true);
-    setupRecaptcha();
-    const appVerifier = (window as any).recaptchaVerifier;
-    const phoneNumber = `+91${mobileNumber}`;
+
+    // Generate 6-digit OTP
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(newOtp);
 
     try {
-      const confirmation = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
-      setConfirmationResult(confirmation);
-      setShowOtpInput(true);
-      setIsSubmitting(false);
-      alert('OTP sent to your mobile number!');
+      const result = await sendOtpToUser(name, email.trim(), newOtp);
+
+      if (result.success) {
+        setShowOtpInput(true);
+        alert(`OTP sent to ${email}. Please check your inbox (and spam folder).`);
+      } else {
+        throw new Error(result.error || 'Failed to send OTP email.');
+      }
     } catch (err: any) {
       console.error('Error sending OTP:', err);
       setError(err.message || 'Failed to send OTP. Please try again.');
+    } finally {
       setIsSubmitting(false);
-      // Reset recaptcha
-      if ((window as any).recaptchaVerifier) {
-        (window as any).recaptchaVerifier.clear();
-        (window as any).recaptchaVerifier = null;
-      }
     }
   };
 
@@ -114,242 +90,201 @@ export const MobileNumberModal = () => {
     setError('');
     setIsSubmitting(true);
 
-    if (!confirmationResult) {
-      setError('Something went wrong. Please request OTP again.');
+    if (otp !== generatedOtp) {
+      setError('Invalid OTP. Please try again.');
       setIsSubmitting(false);
       return;
     }
 
+    // OTP Verified - Submit Data
     try {
-      await confirmationResult.confirm(otp);
-      // OTP Verified! Now submit data.
-      await submitData();
-    } catch (err: any) {
-      console.error('Error verifying OTP:', err);
-      setError('Invalid OTP. Please try again.');
-      setIsSubmitting(false);
-    }
-  };
-
-  const submitData = async () => {
-    try {
-      // 1. Send user details to admin via email service (Keep existing logic)
-      const emailResult = await sendMobileNumberToAdmin({
-        name: name.trim(),
-        mobileNumber: mobileNumber,
-        email: email.trim() || 'Not provided'
+      // 1. Send Feedback Email to Admin
+      const emailResult = await sendFeedbackToAdmin({
+        name,
+        email,
+        mobileNumber,
+        message
       });
 
       if (!emailResult.success) {
-        console.error('Email sending failed:', emailResult.error);
+        console.error('Failed to send feedback email:', emailResult.error);
+        // Continue anyway to save to DB
       }
 
-      // 2. Save to Supabase Database
-      const dbResult = await submitContactMessage({
-        name: name.trim(),
-        email: email.trim() || undefined,
+      // 2. Save to Supabase
+      await submitContactMessage({
+        name,
+        email,
         phone: mobileNumber,
-        message: 'Mobile Number Collection Modal (Verified)',
-        source: 'mobile_modal_verified'
+        message: message,
+        source: 'feedback_modal'
       });
 
-      if (!dbResult.success) {
-        console.error('Database save failed:', dbResult.error);
-      }
+      // Success
+      sessionStorage.setItem('mobile_submitted', 'true');
+      setIsOpen(false);
+      alert('Thank you for your feedback!');
 
-      // Mark as submitted
-      localStorage.setItem(STORAGE_KEY, 'true');
-      localStorage.setItem('giftology_user_name', name.trim());
-      localStorage.setItem('giftology_mobile_number', mobileNumber);
-      localStorage.setItem('giftology_user_email', email.trim() || '');
-      localStorage.setItem('giftology_mobile_submitted_at', new Date().toISOString());
-
-      setSubmitSuccess(true);
-      setError('');
-
-      setTimeout(() => {
-        setIsOpen(false);
-      }, 2000);
-
-    } catch (error: any) {
-      console.error('Unexpected error submitting data:', error);
-      setError('Data submission failed, but you are verified.');
+    } catch (err) {
+      console.error('Submission error:', err);
+      setError('Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleClose = () => {
+    setIsOpen(false);
+    sessionStorage.setItem('mobile_submitted', 'true'); // Don't show again this session
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Backdrop - No onClick to close */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative"
           >
-            {/* Modal */}
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl relative z-[101]"
+            {/* Close Button */}
+            <button
+              onClick={handleClose}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
             >
-              {submitSuccess ? (
-                <div className="text-center">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 200, damping: 10 }}
-                    className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"
-                  >
-                    <Icons.CheckCircle className="w-10 h-10 text-green-600" />
-                  </motion.div>
-                  <h2 className="font-serif text-2xl font-bold text-textMain mb-2">
-                    Verified & Connected!
-                  </h2>
-                  <p className="text-textMuted">
-                    Thank you for joining Giftology.
-                  </p>
+              <Icons.X className="w-6 h-6" />
+            </button>
+
+            <div className="p-8">
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Icons.MessageSquare className="w-8 h-8 text-primary" />
                 </div>
-              ) : (
-                <>
-                  {/* Content */}
-                  <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Icons.Phone className="w-8 h-8 text-primary" />
+                <h2 className="text-2xl font-serif font-bold text-gray-900">{title}</h2>
+                <p className="text-gray-500 mt-2 text-sm">
+                  Help us improve Giftology! Verify your details to send us your thoughts.
+                </p>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-6 flex items-center gap-2">
+                  <Icons.AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <p>{error}</p>
+                </div>
+              )}
+
+              {!showOtpInput ? (
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
+                    <div className="relative">
+                      <Icons.User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                        placeholder="John Doe"
+                      />
                     </div>
-                    <h2 className="font-serif text-2xl font-bold text-textMain mb-2">
-                      {showOtpInput ? 'Verify OTP' : 'Welcome to Giftology!'}
-                    </h2>
-                    <p className="text-textMuted text-sm">
-                      {showOtpInput
-                        ? `Enter the OTP sent to +91 ${mobileNumber}`
-                        : 'Please verify your number to continue shopping.'}
-                    </p>
                   </div>
 
-                  {/* Form */}
-                  <form onSubmit={showOtpInput ? handleVerifyOtp : handleSendOtp} className="space-y-4">
-                    {error && (
-                      <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center border border-red-100">
-                        <p>{error}</p>
-                      </div>
-                    )}
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Mobile Number</label>
+                    <div className="relative">
+                      <Icons.Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="tel"
+                        required
+                        value={mobileNumber}
+                        onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                        placeholder="9876543210"
+                      />
+                    </div>
+                  </div>
 
-                    {!showOtpInput ? (
-                      <>
-                        {/* Name Field */}
-                        <div>
-                          <input
-                            type="text"
-                            placeholder="Your Name *"
-                            value={name}
-                            onChange={(e) => {
-                              setName(e.target.value);
-                              setError('');
-                            }}
-                            disabled={isSubmitting}
-                            required
-                            className="w-full border-2 border-gray-200 rounded-lg p-3 outline-none bg-white text-gray-900 text-lg disabled:bg-gray-50 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                          />
-                        </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+                    <div className="relative">
+                      <Icons.Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                  </div>
 
-                        {/* Mobile Number Field */}
-                        <div className="flex border-2 border-gray-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary focus-within:border-primary transition-all">
-                          <span className="bg-gray-50 px-4 py-3 text-gray-600 border-r flex items-center font-bold">
-                            +91
-                          </span>
-                          <input
-                            type="tel"
-                            placeholder="Mobile Number *"
-                            value={mobileNumber}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                              setMobileNumber(value);
-                              setError('');
-                            }}
-                            disabled={isSubmitting}
-                            required
-                            className="flex-1 p-3 outline-none bg-white text-gray-900 text-lg disabled:bg-gray-50"
-                          />
-                        </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Your Feedback</label>
+                    <textarea
+                      required
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all h-24 resize-none"
+                      placeholder="Tell us what you think..."
+                    />
+                  </div>
 
-                        {/* Email Field (Optional) */}
-                        <div>
-                          <input
-                            type="email"
-                            placeholder="Email Address (Optional)"
-                            value={email}
-                            onChange={(e) => {
-                              setEmail(e.target.value);
-                              setError('');
-                            }}
-                            disabled={isSubmitting}
-                            className="w-full border-2 border-gray-200 rounded-lg p-3 outline-none bg-white text-gray-900 text-lg disabled:bg-gray-50 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                          />
-                        </div>
-                      </>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-black text-white py-4 rounded-xl font-bold text-lg hover:bg-gray-800 transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      /* OTP Input */
-                      <div>
-                        <input
-                          type="text"
-                          placeholder="Enter 6-digit OTP"
-                          value={otp}
-                          onChange={(e) => {
-                            setOtp(e.target.value.replace(/\D/g, '').slice(0, 6));
-                            setError('');
-                          }}
-                          disabled={isSubmitting}
-                          required
-                          className="w-full border-2 border-gray-200 rounded-lg p-3 outline-none bg-white text-gray-900 text-lg text-center tracking-widest disabled:bg-gray-50 focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                          autoFocus
-                        />
-                      </div>
+                      <>
+                        <span>Send OTP via Email</span>
+                        <Icons.ArrowRight className="w-5 h-5" />
+                      </>
                     )}
-
-                    <div id="recaptcha-container"></div>
-
-                    <button
-                      type="submit"
-                      disabled={isSubmitting || (!showOtpInput && (!name.trim() || mobileNumber.length !== 10)) || (showOtpInput && otp.length !== 6)}
-                      className="w-full bg-black text-white py-4 rounded-lg font-bold hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
-                          {showOtpInput ? 'Verifying...' : 'Sending OTP...'}
-                        </>
-                      ) : (
-                        <>
-                          {showOtpInput ? 'Verify OTP' : 'Send OTP'}
-                          <Icons.ArrowRight className="w-5 h-5" />
-                        </>
-                      )}
-                    </button>
-
-                    {showOtpInput && (
-                      <button
-                        type="button"
-                        onClick={() => setShowOtpInput(false)}
-                        className="w-full text-sm text-gray-500 hover:text-black underline"
-                      >
-                        Change Number
-                      </button>
-                    )}
-
-                    <p className="text-xs text-center text-textMuted">
-                      We respect your privacy. Your number will only be used to contact you.
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-6">
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 mb-4">
+                      We sent a 6-digit code to <span className="font-bold text-black">{email}</span>
                     </p>
-                  </form>
-                </>
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="w-full text-center text-3xl font-bold tracking-[0.5em] py-4 border-b-2 border-gray-200 focus:border-primary outline-none transition-all bg-transparent"
+                      placeholder="••••••"
+                      maxLength={6}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-primary text-black py-4 rounded-xl font-bold text-lg hover:bg-primary-dark transition-all transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed shadow-lg"
+                  >
+                    {isSubmitting ? 'Verifying...' : 'Verify & Submit Feedback'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setShowOtpInput(false); setOtp(''); }}
+                    className="w-full text-sm text-gray-500 hover:text-black transition-colors"
+                  >
+                    Change Details / Resend OTP
+                  </button>
+                </form>
               )}
-            </motion.div>
+            </div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );
