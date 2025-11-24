@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../types';
 import { supabase } from '../services/supabaseClient';
-import { sendWelcomeEmail } from '../services/emailService';
+import { sendWelcomeEmail, sendOtpToUser } from '../services/emailService';
 
 interface AuthContextType {
   user: User | null;
@@ -118,10 +118,7 @@ export const AuthProvider = ({ children }: { children?: ReactNode }) => {
       // Send OTP via EmailJS
       // We use email as name since we might not have it for login
       console.log(`Generating OTP for ${email}...`);
-      const { success, error } = await import('../services/emailService').then(m => {
-        console.log('EmailService loaded, sending OTP...');
-        return m.sendOtpToUser(email.split('@')[0], email, otp);
-      });
+      const { success, error } = await sendOtpToUser(email.split('@')[0], email, otp);
 
       if (!success) {
         throw new Error(error || 'Failed to send OTP');

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Icons } from '../components/ui/Icons';
+import { sendWelcomeEmail } from '../services/emailService';
 
 export const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -60,7 +61,7 @@ export const Login = () => {
               // if it was a "User already registered" error, maybe not?
               // But if the user THINKS they are signing up, getting a welcome email is nice.
               // Let's force send it here just in case register() didn't do it because of the error.
-              import('../services/emailService').then(m => m.sendWelcomeEmail(pendingSignup.name, pendingSignup.email));
+              sendWelcomeEmail(pendingSignup.name, pendingSignup.email);
             }
           }
 
