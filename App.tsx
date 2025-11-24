@@ -14,6 +14,7 @@ import { Checkout } from './pages/Checkout';
 import { Search } from './pages/Search';
 import { AdminLogin } from './pages/AdminLogin';
 import { ProductDetail } from './pages/ProductDetail';
+import { GiftGuide } from './pages/GiftGuide';
 import { CartDrawer } from './components/CartDrawer';
 
 
@@ -31,6 +32,7 @@ const App = () => {
                 <Route path="/" element={<Home />} />
                 <Route path="/shop" element={<Shop />} />
                 <Route path="/search" element={<Search />} />
+                <Route path="/gift-guide" element={<GiftGuide />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/admin-login" element={<AdminLogin />} />
                 <Route path="/account" element={<Account />} />

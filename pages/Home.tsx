@@ -276,8 +276,8 @@ export const Home = () => {
                 <Icons.Phone className="w-8 h-8 text-green-600" />
               </div>
               <h3 className="font-bold text-lg mb-2">Call Us</h3>
-              <p className="text-gray-600 font-medium">+91 8108303255</p>
               <p className="text-gray-600 font-medium">+91 9137645161</p>
+              <p className="text-gray-600 font-medium">+91 8108303255</p>
             </div>
 
             {/* Email */}

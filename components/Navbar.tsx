@@ -35,17 +35,17 @@ export const Navbar = () => {
 
           {/* Desktop Nav */}
           <div className="hidden lg:flex items-center space-x-8 flex-shrink-0">
+            <Link to="/gift-guide" className="flex items-center gap-1.5 text-textMain hover:text-primary font-medium transition-colors">
+              <Icons.Sparkles className="w-4 h-4" />
+              Gift Guide
+            </Link>
             <Link to="/shop" className="flex items-center gap-1.5 text-textMain hover:text-primary font-medium transition-colors">
-              <Icons.Gift className="w-4 h-4" />
-              Gift Guides
+              <Icons.ShoppingBag className="w-4 h-4" />
+              Shop
             </Link>
             <Link to="/shop?category=trending" className="flex items-center gap-1.5 text-textMain hover:text-primary font-medium transition-colors">
               <Icons.TrendingUp className="w-4 h-4" />
               Trending Now
-            </Link>
-            <Link to="/shop?category=occasions" className="flex items-center gap-1.5 text-textMain hover:text-primary font-medium transition-colors">
-              <Icons.Calendar className="w-4 h-4" />
-              Occasion Central
             </Link>
 
             {user?.role === 'admin' && (
@@ -155,9 +155,13 @@ export const Navbar = () => {
         <div className="lg:hidden bg-background border-t border-gray-100 animate-in slide-in-from-top-5 absolute w-full z-40 shadow-xl">
           <div className="px-4 pt-4 pb-6 space-y-4">
             <div className="grid grid-cols-2 gap-2">
+              <Link to="/gift-guide" className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border border-gray-100 shadow-sm" onClick={() => setIsMenuOpen(false)}>
+                <Icons.Sparkles className="w-6 h-6 text-primary mb-2" />
+                <span className="text-sm font-bold">Gift Guide</span>
+              </Link>
               <Link to="/shop" className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border border-gray-100 shadow-sm" onClick={() => setIsMenuOpen(false)}>
-                <Icons.Gift className="w-6 h-6 text-primary mb-2" />
-                <span className="text-sm font-bold">Gift Guides</span>
+                <Icons.ShoppingBag className="w-6 h-6 text-primary mb-2" />
+                <span className="text-sm font-bold">Shop</span>
               </Link>
               <Link to="/shop?category=trending" className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border border-gray-100 shadow-sm" onClick={() => setIsMenuOpen(false)}>
                 <Icons.TrendingUp className="w-6 h-6 text-primary mb-2" />

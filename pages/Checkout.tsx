@@ -31,8 +31,7 @@ export const Checkout = () => {
     city: '',
     state: '',
     zipCode: '',
-    deliveryDate: '',
-    deliveryTime: ''
+    deliveryDate: ''
   });
 
   // UPI Screenshot State
@@ -124,7 +123,6 @@ export const Checkout = () => {
         city: formData.city,
         zipCode: formData.zipCode,
         deliveryDate: formData.deliveryDate,
-        deliveryTime: formData.deliveryTime,
         deliveryType: isFastDelivery ? 'Fast Delivery' : 'Standard Delivery',
         paymentMethod,
         screenshot: screenshot || undefined,
@@ -178,7 +176,7 @@ export const Checkout = () => {
           customerEmail: formData.email,
           orderTotal: finalTotal.toLocaleString(),
           paymentMethod: paymentMethod,
-          deliveryDetails: `${formData.address}, ${formData.zipCode} | ${formData.deliveryDate} ${formData.deliveryTime}`,
+          deliveryDetails: `${formData.address}, ${formData.zipCode} | ${formData.deliveryDate}`,
           orderItems: orderItemsHtml
         };
 
@@ -189,7 +187,7 @@ export const Checkout = () => {
           customerEmail: formData.email,
           orderTotal: finalTotal.toLocaleString(),
           paymentMethod: paymentMethod,
-          deliveryDetails: `${formData.deliveryDate} ${formData.deliveryTime}`,
+          deliveryDetails: `${formData.deliveryDate}`,
           orderItems: orderItemsHtml
         };
 
@@ -350,34 +348,17 @@ export const Checkout = () => {
                       <input required type="text" placeholder="Zip Code (6 digits)" value={formData.zipCode} onChange={e => setFormData({ ...formData, zipCode: e.target.value.replace(/\D/g, '').slice(0, 6) })} className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900" />
                     </div>
 
-                    {/* Date and Time */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Delivery Date</label>
-                        <input
-                          required
-                          type="date"
-                          min={getMinDate()}
-                          value={formData.deliveryDate}
-                          onChange={e => setFormData({ ...formData, deliveryDate: e.target.value })}
-                          className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Time Slot</label>
-                        <select
-                          required
-                          value={formData.deliveryTime}
-                          onChange={e => setFormData({ ...formData, deliveryTime: e.target.value })}
-                          className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900"
-                        >
-                          <option value="">Select Time</option>
-                          <option value="09:00 AM - 12:00 PM">09:00 AM - 12:00 PM</option>
-                          <option value="12:00 PM - 03:00 PM">12:00 PM - 03:00 PM</option>
-                          <option value="03:00 PM - 06:00 PM">03:00 PM - 06:00 PM</option>
-                          <option value="06:00 PM - 09:00 PM">06:00 PM - 09:00 PM</option>
-                        </select>
-                      </div>
+                    {/* Delivery Date */}
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Delivery Date</label>
+                      <input
+                        required
+                        type="date"
+                        min={getMinDate()}
+                        value={formData.deliveryDate}
+                        onChange={e => setFormData({ ...formData, deliveryDate: e.target.value })}
+                        className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900"
+                      />
                     </div>
 
                     {/* Delivery Type Selection */}

@@ -157,8 +157,7 @@ class StoreService {
         customer_phone: details.phone,
         customer_email: details.email,
         delivery_type: details.deliveryType,
-        delivery_date: details.deliveryDate,
-        delivery_time: details.deliveryTime
+        delivery_date: details.deliveryDate
       },
       payment_method: details.paymentMethod,
       guest_info: !userId ? details.guestInfo : null

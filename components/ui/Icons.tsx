@@ -1,6 +1,7 @@
 import {
   ShoppingBag,
   User,
+  Users,
   Menu,
   X,
   Heart,
@@ -36,12 +37,16 @@ import {
   Check,
   Truck,
   Zap,
-  MapPin
+  MapPin,
+  Filter,
+  DollarSign,
+  Sparkles
 } from 'lucide-react';
 
 export const Icons = {
   ShoppingBag,
   User,
+  Users,
   Menu,
   X,
   Heart,
@@ -77,5 +82,8 @@ export const Icons = {
   Check,
   Truck,
   Zap,
-  MapPin
+  MapPin,
+  Filter,
+  DollarSign,
+  Sparkles
 };
