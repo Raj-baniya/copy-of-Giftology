@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
+import { MobileNumberModal } from './components/MobileNumberModal';
+
 import { Navbar } from './components/Navbar';
 import { Home } from './pages/Home';
 import { Shop } from './pages/Shop';
@@ -11,8 +13,9 @@ import { Admin } from './pages/Admin';
 import { Checkout } from './pages/Checkout';
 import { Search } from './pages/Search';
 import { AdminLogin } from './pages/AdminLogin';
+import { ProductDetail } from './pages/ProductDetail';
 import { CartDrawer } from './components/CartDrawer';
-import { MobileNumberModal } from './components/MobileNumberModal';
+
 
 const App = () => {
   return (
@@ -22,7 +25,7 @@ const App = () => {
           <div className="flex flex-col min-h-screen bg-background font-sans text-textMain">
             <Navbar />
             <CartDrawer />
-            <MobileNumberModal />
+
             <main className="flex-grow">
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -33,6 +36,9 @@ const App = () => {
                 <Route path="/account" element={<Account />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/checkout" element={<Checkout />} />
+                <Route path="/product/:slug" element={<ProductDetail />} />
+
+
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>

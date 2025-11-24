@@ -17,6 +17,9 @@ export const Checkout = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'cod'>('upi');
+  const [isFastDelivery, setIsFastDelivery] = useState(false);
+
+  const finalTotal = cartTotal + (isFastDelivery ? 100 : 0);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -25,7 +28,8 @@ export const Checkout = () => {
     email: user?.email || '',
     phone: '',
     address: '',
-    city: 'Mumbai',
+    city: '',
+    state: '',
     zipCode: '',
     deliveryDate: '',
     deliveryTime: ''
@@ -33,6 +37,29 @@ export const Checkout = () => {
 
   // UPI Screenshot State
   const [screenshot, setScreenshot] = useState<string | null>(null);
+
+  // Address Management
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [saveAddress, setSaveAddress] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      store.getUserAddresses(user.id).then(setSavedAddresses);
+    }
+  }, [user]);
+
+  const handleAddressSelect = (addr: any) => {
+    setFormData({
+      ...formData,
+      firstName: addr.firstName || '',
+      lastName: addr.lastName || '',
+      phone: addr.phone || '',
+      address: addr.address || '',
+      city: addr.city || '',
+      state: addr.state || '',
+      zipCode: addr.zipCode || ''
+    });
+  };
 
   // Redirect if empty cart
   useEffect(() => {
@@ -50,18 +77,26 @@ export const Checkout = () => {
 
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Handling Shipping Submit', formData);
+
     if (formData.phone.length !== 10) {
+      console.log('Validation Failed: Phone length', formData.phone.length);
       alert('Please enter a valid 10-digit mobile number.');
       return;
     }
     if (formData.zipCode.length !== 6) {
+      console.log('Validation Failed: Zip length', formData.zipCode.length);
       alert('Zip Code must be 6 digits.');
       return;
     }
-    if (formData.city.toLowerCase() !== 'mumbai') {
-      alert('We currently deliver only in Mumbai.');
-      return;
-    }
+    // Removed Mumbai restriction
+    // if (formData.city.toLowerCase() !== 'mumbai') {
+    //   console.log('Validation Failed: City', formData.city);
+    //   alert('We currently deliver only in Mumbai.');
+    //   return;
+    // }
+
+    console.log('Validation Passed. Moving to step 1.');
     setCurrentStep(1);
   };
 
@@ -76,7 +111,10 @@ export const Checkout = () => {
     setProcessing(true);
 
     try {
-      // 1. Create Order in Store
+      // Check if user is a real Supabase user or a mock OTP user
+      const isRealUser = user && !user.id.startsWith('otp_');
+      const dbUserId = isRealUser ? user.id : null;
+
       // 1. Create Order in Store (Supabase)
       const orderDetails = {
         customerName: `${formData.firstName} ${formData.lastName}`,
@@ -87,16 +125,17 @@ export const Checkout = () => {
         zipCode: formData.zipCode,
         deliveryDate: formData.deliveryDate,
         deliveryTime: formData.deliveryTime,
+        deliveryType: isFastDelivery ? 'Fast Delivery' : 'Standard Delivery',
         paymentMethod,
         screenshot: screenshot || undefined,
         shippingAddress: {
           street: formData.address,
           city: formData.city,
           zipCode: formData.zipCode,
-          state: 'Maharashtra', // Defaulting since we check for Mumbai
+          state: formData.state,
           country: 'India'
         },
-        guestInfo: !user ? {
+        guestInfo: !isRealUser ? {
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
@@ -104,14 +143,27 @@ export const Checkout = () => {
         } : undefined
       };
 
-      // Always create order, pass user.id if logged in, otherwise null
-      await store.createOrder(user?.id || null, cart, cartTotal, orderDetails);
+      // Always create order, pass user.id if logged in (real), otherwise null
+      await store.createOrder(dbUserId, cart, finalTotal, orderDetails);
+
+      // Save Address if requested and user is logged in
+      if (isRealUser && saveAddress) {
+        await store.saveUserAddress(user.id, {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          zipCode: formData.zipCode
+        });
+      }
 
       // Generate HTML for Order Items (Simplified for EmailJS limit)
       const orderItemsHtml = cart.map(item => `
             <div style="border-bottom: 1px solid #eee; padding: 10px 0;">
                 <p style="margin: 0; font-weight: bold; font-size: 14px;">${item.name}</p>
-                <p style="margin: 0; color: #666; font-size: 12px;">Qty: ${item.quantity} | Price: ₹${(item.price * item.quantity).toLocaleString()}</p>
+                <p style="margin: 0; color: #666; font-size: 12px;">Qty: ${item.quantity} | Price: <span style="font-family: Arial, sans-serif;">&#8377;</span>${(item.price * item.quantity).toLocaleString()}</p>
             </div>
         `).join('');
 
@@ -124,7 +176,7 @@ export const Checkout = () => {
           customerName: `${formData.firstName} ${formData.lastName}`,
           customerPhone: formData.phone,
           customerEmail: formData.email,
-          orderTotal: cartTotal.toLocaleString(),
+          orderTotal: finalTotal.toLocaleString(),
           paymentMethod: paymentMethod,
           deliveryDetails: `${formData.address}, ${formData.zipCode} | ${formData.deliveryDate} ${formData.deliveryTime}`,
           orderItems: orderItemsHtml
@@ -135,7 +187,7 @@ export const Checkout = () => {
           customerName: `${formData.firstName} ${formData.lastName}`, // Send Full Name
           customerPhone: formData.phone,
           customerEmail: formData.email,
-          orderTotal: cartTotal.toLocaleString(),
+          orderTotal: finalTotal.toLocaleString(),
           paymentMethod: paymentMethod,
           deliveryDetails: `${formData.deliveryDate} ${formData.deliveryTime}`,
           orderItems: orderItemsHtml
@@ -239,6 +291,28 @@ export const Checkout = () => {
                   className="bg-white p-6 rounded-xl shadow-sm"
                 >
                   <h2 className="font-serif text-2xl font-bold mb-6">Shipping Details</h2>
+
+                  {savedAddresses.length > 0 && (
+                    <div className="mb-6">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Saved Addresses</label>
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleAddressSelect(savedAddresses[parseInt(e.target.value)]);
+                          }
+                        }}
+                        className="w-full p-3 border rounded-lg bg-gray-50 outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">Select a saved address...</option>
+                        {savedAddresses.map((addr, idx) => (
+                          <option key={idx} value={idx}>
+                            {addr.firstName} {addr.lastName} - {addr.address}, {addr.city}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <form className="space-y-4" onSubmit={handleShippingSubmit}>
                     <div className="grid grid-cols-2 gap-4">
                       <input required type="text" placeholder="First Name" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900" />
@@ -262,14 +336,17 @@ export const Checkout = () => {
 
                     {/* Location Picker */}
                     <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Pin Location (Mumbai Only)</label>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Pin Location</label>
                       <LocationPicker onLocationSelect={handleLocationSelect} />
                     </div>
 
                     <input required type="text" placeholder="Flat / House No / Building / Street" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900" />
 
                     <div className="grid grid-cols-2 gap-4">
-                      <input type="text" value="Mumbai" disabled className="border rounded-lg p-3 w-full bg-gray-100 text-gray-500 cursor-not-allowed" />
+                      <input required type="text" placeholder="City" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900" />
+                      <input required type="text" placeholder="State" value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })} className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900" />
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
                       <input required type="text" placeholder="Zip Code (6 digits)" value={formData.zipCode} onChange={e => setFormData({ ...formData, zipCode: e.target.value.replace(/\D/g, '').slice(0, 6) })} className="border rounded-lg p-3 w-full focus:ring-2 focus:ring-primary outline-none bg-white text-gray-900" />
                     </div>
 
@@ -302,6 +379,46 @@ export const Checkout = () => {
                         </select>
                       </div>
                     </div>
+
+                    {/* Delivery Type Selection */}
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <p className="font-bold text-sm mb-3">Delivery Speed</p>
+                      <div className="space-y-3">
+                        <label className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${!isFastDelivery ? 'bg-white border-primary ring-1 ring-primary' : 'bg-white border-gray-200'}`}>
+                          <div className="flex items-center gap-3">
+                            <input type="radio" name="deliverySpeed" checked={!isFastDelivery} onChange={() => setIsFastDelivery(false)} className="accent-primary w-4 h-4" />
+                            <div>
+                              <span className="font-bold text-sm block">Standard Delivery</span>
+                              <span className="text-xs text-gray-500">Delivered in 3-5 days</span>
+                            </div>
+                          </div>
+                          <span className="text-green-600 font-bold text-sm">Free</span>
+                        </label>
+
+                        <label className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${isFastDelivery ? 'bg-white border-primary ring-1 ring-primary' : 'bg-white border-gray-200'}`}>
+                          <div className="flex items-center gap-3">
+                            <input type="radio" name="deliverySpeed" checked={isFastDelivery} onChange={() => setIsFastDelivery(true)} className="accent-primary w-4 h-4" />
+                            <div>
+                              <span className="font-bold text-sm block flex items-center gap-1">Fast Delivery <Icons.Zap className="w-3 h-3 text-yellow-500 fill-yellow-500" /></span>
+                              <span className="text-xs text-gray-500">Delivered within 24-48 hours</span>
+                            </div>
+                          </div>
+                          <span className="font-bold text-sm" style={{ fontFamily: 'Arial, sans-serif' }}>+&#8377;100</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {user && (
+                      <label className="flex items-center gap-2 mt-4 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={saveAddress}
+                          onChange={(e) => setSaveAddress(e.target.checked)}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <span className="text-sm text-gray-700">Save this address for future orders</span>
+                      </label>
+                    )}
 
                     <button type="submit" className="w-full bg-black text-white py-4 rounded-lg font-bold hover:bg-gray-800 transition-colors mt-4">Continue to Payment</button>
                   </form>
@@ -395,7 +512,9 @@ export const Checkout = () => {
                       className="w-full bg-black text-white py-4 rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
                     >
                       {processing ? <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" /> :
-                        (paymentMethod === 'cod' ? `Place Order - ₹${cartTotal.toLocaleString()}` : `Confirm Payment - ₹${cartTotal.toLocaleString()}`)
+                        (paymentMethod === 'cod' ?
+                          <span className="flex items-center gap-1">Place Order - <span style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{finalTotal.toLocaleString()}</span></span> :
+                          <span className="flex items-center gap-1">Confirm Payment - <span style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{finalTotal.toLocaleString()}</span></span>)
                       }
                     </button>
                     <button type="button" onClick={() => setCurrentStep(0)} className="w-full mt-2 text-textMuted hover:underline">Back to Shipping</button>
@@ -436,17 +555,38 @@ export const Checkout = () => {
           {currentStep < 2 && (
             <div className="bg-gray-50 p-6 rounded-xl h-fit">
               <h3 className="font-bold text-lg mb-4">Order Summary</h3>
-              <div className="space-y-4 mb-4">
+              <div className="space-y-4 mb-6">
                 {cart.map(item => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span className="text-textMuted">{item.name} x{item.quantity}</span>
-                    <span className="font-medium">₹{(item.price * item.quantity).toLocaleString()}</span>
+                  <div key={item.id} className="flex gap-4">
+                    <div className="relative w-16 h-16 bg-gray-50 rounded-lg overflow-hidden shrink-0">
+                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                      <span className="absolute top-0 right-0 bg-gray-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-bl-lg">{item.quantity}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-gray-900 line-clamp-2 text-sm">{item.name}</h4>
+                      <p className="text-gray-500 text-xs mt-1">{item.category}</p>
+                    </div>
+                    <span className="font-bold text-gray-900 text-sm" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{(item.price * item.quantity).toLocaleString()}</span>
                   </div>
                 ))}
               </div>
-              <div className="border-t pt-4 flex justify-between items-center">
+
+              <div className="border-t border-gray-100 pt-4 space-y-2">
+                <div className="flex justify-between text-gray-600">
+                  <span>Subtotal</span>
+                  <span className="font-medium" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{cartTotal.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping ({isFastDelivery ? 'Fast' : 'Standard'})</span>
+                  <span className={`font-medium ${isFastDelivery ? 'text-gray-900' : 'text-green-600'}`} style={{ fontFamily: 'Arial, sans-serif' }}>
+                    {isFastDelivery ? <span style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;100</span> : 'Free'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4 mt-4 flex justify-between items-center">
                 <span className="font-bold text-lg">Total</span>
-                <span className="font-bold text-xl">₹{cartTotal.toLocaleString()}</span>
+                <span className="font-bold text-2xl" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{finalTotal.toLocaleString()}</span>
               </div>
             </div>
           )}

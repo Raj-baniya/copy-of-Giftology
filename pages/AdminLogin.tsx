@@ -31,12 +31,12 @@ export const AdminLogin = () => {
       console.error('Supabase login error:', err);
 
       // Fallback: Check hardcoded credentials for owner
-      const ADMIN_EMAIL = 'giftology.in14@gmail.com';
+      const ALLOWED_EMAILS = ['giftology.in01@gmail.com', 'giftology.in02@gmail.com'];
       const ADMIN_PASS = 'Giftology.in@giftstore';
 
-      if (email === ADMIN_EMAIL && password === ADMIN_PASS) {
-        // Set a fallback auth token
-        localStorage.setItem('giftology_admin_auth', 'true');
+      if (ALLOWED_EMAILS.includes(email) && password === ADMIN_PASS) {
+        // Set a fallback auth token in SESSION storage (clears on close)
+        sessionStorage.setItem('giftology_admin_auth', 'true');
         navigate('/admin');
         return;
       }
@@ -76,7 +76,7 @@ export const AdminLogin = () => {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-red-500 outline-none transition-all bg-white text-gray-900"
               required
-              placeholder="giftology.in14@gmail.com"
+              placeholder="giftology.in01@gmail.com"
             />
           </div>
           <div>

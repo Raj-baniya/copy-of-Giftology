@@ -8,6 +8,8 @@ export interface Product {
   description: string;
   trending?: boolean;
   stock?: number;
+  images?: string[];
+  marketPrice?: number;
 }
 
 export interface CartItem extends Product {
@@ -28,16 +30,18 @@ export interface Order {
   date: string;
   items: CartItem[];
   total: number;
-  status: 'Processing' | 'Shipped' | 'Delivered';
+  status: 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
   // New Fields
   customerName?: string;
   phone?: string;
   email?: string;
   address?: string;
   city?: string;
+  state?: string;
   zipCode?: string;
   deliveryDate?: string;
   deliveryTime?: string;
+  deliveryType?: string;
   paymentMethod?: 'upi' | 'cod';
   screenshot?: string; // Base64 string for UPI
   shippingAddress?: any;

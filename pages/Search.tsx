@@ -19,8 +19,8 @@ export const Search = () => {
       const all = await store.getProducts();
       if (query) {
         const lowerQuery = query.toLowerCase();
-        const filtered = all.filter(p => 
-          p.name.toLowerCase().includes(lowerQuery) || 
+        const filtered = all.filter(p =>
+          p.name.toLowerCase().includes(lowerQuery) ||
           p.category.toLowerCase().includes(lowerQuery) ||
           (p.description && p.description.toLowerCase().includes(lowerQuery))
         );
@@ -65,26 +65,31 @@ export const Search = () => {
                 className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group border border-gray-100"
               >
                 <div className="relative aspect-square overflow-hidden bg-gray-50">
-                  <img 
-                    src={product.imageUrl} 
-                    alt={product.name} 
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 </div>
                 <div className="p-6 flex flex-col h-48">
-                    <div className="flex-1">
-                        <h3 className="font-bold text-lg text-gray-900 mb-1 leading-tight">{product.name}</h3>
-                        <p className="text-sm text-gray-500 capitalize">{product.category.replace('-', ' ')}</p>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-gray-900 mb-1 leading-tight">{product.name}</h3>
+                    <p className="text-sm text-gray-500 capitalize">{product.category.replace('-', ' ')}</p>
+                  </div>
+                  <div className="flex justify-between items-end mt-4">
+                    <div className="flex flex-col">
+                      <span className="text-sm md:text-xl font-bold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{product.price}</span>
+                      {product.marketPrice && product.marketPrice > product.price && (
+                        <span className="text-xs text-gray-400 line-through" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{product.marketPrice}</span>
+                      )}
                     </div>
-                    <div className="flex justify-between items-end mt-4">
-                        <span className="text-xl font-bold text-gray-900">₹{product.price}</span>
-                        <button 
-                            onClick={() => addToCart(product)}
-                            className="bg-[#E94E77] text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-[#D63D65] transition-all shadow-lg hover:shadow-[#E94E77]/30 transform active:scale-95"
-                        >
-                            Add to Cart
-                        </button>
-                    </div>
+                    <button
+                      onClick={() => addToCart(product)}
+                      className="bg-[#E94E77] text-white px-5 py-2.5 rounded-lg text-sm font-bold hover:bg-[#D63D65] transition-all shadow-lg hover:shadow-[#E94E77]/30 transform active:scale-95"
+                    >
+                      Add to Cart
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             ))}

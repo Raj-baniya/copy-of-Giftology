@@ -104,15 +104,21 @@ export const Account = () => {
   const [newName, setNewName] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchData = async () => {
       if (user) {
         try {
-          const userOrders = await store.getOrders(user.id);
+          const [userOrders, userAddresses] = await Promise.all([
+            store.getOrders(user.id),
+            store.getUserAddresses(user.id)
+          ]);
           setOrders(userOrders);
+          setAddresses(userAddresses);
         } catch (error) {
-          console.error("Failed to fetch orders", error);
+          console.error("Failed to fetch data", error);
         } finally {
           setOrdersLoading(false);
         }
@@ -120,9 +126,20 @@ export const Account = () => {
     };
 
     if (!loading && user) {
-      fetchOrders();
+      fetchData();
     }
   }, [user, loading]);
+
+  const handleDeleteAddress = async (index: number) => {
+    if (window.confirm('Are you sure you want to delete this address?')) {
+      try {
+        const updated = await store.deleteUserAddress(user!.id, index);
+        setAddresses(updated);
+      } catch (error) {
+        console.error('Failed to delete address', error);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -195,6 +212,7 @@ export const Account = () => {
           {/* Scrollable Tabs for Mobile */}
           <div className="bg-white rounded-xl shadow-sm p-2 md:p-4 flex md:flex-col overflow-x-auto gap-2 md:gap-1 scrollbar-hide sticky top-20 z-20 md:static md:h-fit">
             <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={Icons.Package} label="Overview" />
+            <TabButton active={activeTab === 'addresses'} onClick={() => setActiveTab('addresses')} icon={Icons.MapPin} label="Addresses" />
             <TabButton active={activeTab === 'spending'} onClick={() => setActiveTab('spending')} icon={Icons.Wallet} label="Spending" />
             <TabButton active={activeTab === 'security'} onClick={() => setActiveTab('security')} icon={Icons.Shield} label="Security" />
           </div>
@@ -212,29 +230,79 @@ export const Account = () => {
                   ) : orders.length > 0 ? (
                     <div className="space-y-4">
                       {orders.map((order) => (
-                        <div key={order.id} className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 p-3 md:p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center gap-4 w-full sm:w-auto">
-                            <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-200 rounded-md shrink-0 flex items-center justify-center">
-                              <Icons.Package className="text-gray-400" />
+                        <div key={order.id} className="border border-gray-100 rounded-lg overflow-hidden transition-all hover:shadow-md bg-white">
+                          <div
+                            onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
+                            className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 p-3 md:p-4 cursor-pointer hover:bg-gray-50"
+                          >
+                            <div className="flex items-center gap-4 w-full sm:w-auto">
+                              <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-md shrink-0 flex items-center justify-center text-gray-400">
+                                {expandedOrderId === order.id ? <Icons.ChevronDown /> : <Icons.Package />}
+                              </div>
+                              <div className="flex-1 sm:hidden">
+                                <h4 className="font-bold text-sm">Order #{order.id}</h4>
+                                <span className="font-bold text-sm" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{order.total.toLocaleString()}</span>
+                              </div>
                             </div>
-                            <div className="flex-1 sm:hidden">
-                              <h4 className="font-bold text-sm">Order #{order.id}</h4>
-                              <span className="font-bold text-sm">₹{order.total.toLocaleString()}</span>
+
+                            <div className="flex-1 hidden sm:block">
+                              <h4 className="font-bold">Order #{order.id}</h4>
+                              <p className="text-sm text-textMuted">Placed on {new Date(order.date).toLocaleDateString()}</p>
+                            </div>
+                            <div className="flex justify-between items-center w-full sm:w-auto gap-3">
+                              <span className={`px-2 py-1 text-[10px] md:text-xs font-bold rounded-full ${order.status === 'Delivered' ? 'bg-green-100 text-green-700' :
+                                order.status === 'Shipped' ? 'bg-blue-100 text-blue-700' :
+                                  order.status === 'Cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                {order.status}
+                              </span>
+                              <span className="font-bold text-sm hidden sm:block" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{order.total.toLocaleString()}</span>
+
+                              {/* Cancel Button for User */}
+                              {order.status === 'Processing' && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('Are you sure you want to cancel this order?')) {
+                                      try {
+                                        await store.updateOrderStatus(order.id, 'Cancelled');
+                                        setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'Cancelled' } : o));
+                                        alert('Order cancelled successfully.');
+                                      } catch (err) {
+                                        console.error(err);
+                                        alert('Failed to cancel order.');
+                                      }
+                                    }
+                                  }}
+                                  className="px-3 py-1 text-xs font-bold text-red-600 border border-red-200 rounded hover:bg-red-50 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              )}
                             </div>
                           </div>
 
-                          <div className="flex-1 hidden sm:block">
-                            <h4 className="font-bold">Order #{order.id}</h4>
-                            <p className="text-sm text-textMuted">Placed on {new Date(order.date).toLocaleDateString()}</p>
-                          </div>
-                          <div className="flex justify-between items-center w-full sm:w-auto gap-3">
-                            <span className={`px-2 py-1 text-[10px] md:text-xs font-bold rounded-full ${order.status === 'Delivered' ? 'bg-green-100 text-green-700' :
-                              order.status === 'Shipped' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'
-                              }`}>
-                              {order.status}
-                            </span>
-                            <span className="font-bold text-sm hidden sm:block">₹{order.total.toLocaleString()}</span>
-                          </div>
+                          {/* Expanded Details */}
+                          {expandedOrderId === order.id && (
+                            <div className="bg-gray-50 p-4 border-t border-gray-100">
+                              <h5 className="font-bold text-sm mb-3 text-gray-700">Order Items</h5>
+                              <div className="space-y-3">
+                                {order.items.map((item: any, idx: number) => (
+                                  <div key={idx} className="flex justify-between items-center text-sm">
+                                    <div className="flex items-center gap-3">
+                                      <span className="bg-white w-6 h-6 flex items-center justify-center rounded border text-xs font-bold">{item.quantity}x</span>
+                                      <span className="text-gray-800">{item.name}</span>
+                                    </div>
+                                    <span className="font-medium" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{(item.price * item.quantity).toLocaleString()}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between items-center text-sm">
+                                <span className="text-gray-500">Delivery Type</span>
+                                <span className="font-bold text-gray-900">{order.deliveryType || 'Standard Delivery'}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -248,11 +316,10 @@ export const Account = () => {
               </>
             ) : activeTab === 'spending' ? (
               <div className="space-y-6">
-                {/* Spending Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-primary">
                     <p className="text-sm text-textMuted mb-1">Total Spent</p>
-                    <p className="text-2xl font-bold">₹{orders.reduce((sum, order) => sum + order.total, 0).toLocaleString()}</p>
+                    <p className="text-2xl font-bold" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{orders.reduce((sum, order) => sum + order.total, 0).toLocaleString()}</p>
                   </div>
                   <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
                     <p className="text-sm text-textMuted mb-1">Total Orders</p>
@@ -260,7 +327,7 @@ export const Account = () => {
                   </div>
                   <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
                     <p className="text-sm text-textMuted mb-1">Average Order</p>
-                    <p className="text-2xl font-bold">₹{orders.length > 0 ? Math.round(orders.reduce((sum, order) => sum + order.total, 0) / orders.length).toLocaleString() : 0}</p>
+                    <p className="text-2xl font-bold" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{orders.length > 0 ? Math.round(orders.reduce((sum, order) => sum + order.total, 0) / orders.length).toLocaleString() : 0}</p>
                   </div>
                 </div>
 
@@ -275,7 +342,7 @@ export const Account = () => {
                             <p className="font-medium">Order #{order.id}</p>
                             <p className="text-xs text-textMuted">{new Date(order.date).toLocaleDateString()}</p>
                           </div>
-                          <p className="font-bold text-lg">₹{order.total.toLocaleString()}</p>
+                          <p className="font-bold text-lg" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{order.total.toLocaleString()}</p>
                         </div>
                       ))}
                     </div>
@@ -287,6 +354,39 @@ export const Account = () => {
                   )}
                 </div>
               </div>
+            ) : activeTab === 'addresses' ? (
+              <div className="bg-white p-6 rounded-xl shadow-sm">
+                <h3 className="font-serif text-xl font-bold mb-6">Saved Addresses</h3>
+                {addresses.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {addresses.map((addr, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4 relative hover:border-primary transition-colors">
+                        <button
+                          onClick={() => handleDeleteAddress(index)}
+                          className="absolute top-3 right-3 text-gray-400 hover:text-red-500"
+                        >
+                          <Icons.Trash2 className="w-4 h-4" />
+                        </button>
+                        <div className="flex items-start gap-3">
+                          <Icons.MapPin className="w-5 h-5 text-primary mt-1" />
+                          <div>
+                            <p className="font-bold text-gray-900">{addr.firstName} {addr.lastName}</p>
+                            <p className="text-sm text-gray-600 mt-1">{addr.address}</p>
+                            <p className="text-sm text-gray-600">{addr.city}, {addr.state} - {addr.zipCode}</p>
+                            <p className="text-sm text-gray-600 mt-1">{addr.phone}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-gray-500">
+                    <Icons.MapPin className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>No saved addresses found.</p>
+                    <p className="text-sm">Addresses used during checkout will be saved here.</p>
+                  </div>
+                )}
+              </div>
             ) : activeTab === 'security' ? (
               <div className="bg-white p-6 rounded-xl shadow-sm max-w-lg">
                 <h3 className="font-serif text-xl font-bold mb-6">Security Settings</h3>
@@ -296,6 +396,6 @@ export const Account = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };

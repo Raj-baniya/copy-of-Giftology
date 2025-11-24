@@ -26,6 +26,8 @@ export const Login = () => {
     }
   }, [user, navigate]);
 
+  const [pendingSignup, setPendingSignup] = useState<{ name: string, email: string, password: string } | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -34,17 +36,34 @@ export const Login = () => {
 
     try {
       if (isOtpLogin) {
-        // OTP Flow
+        // OTP Flow (Login or Signup Verification)
         if (!otpSent) {
           // Send OTP
           const { error } = await loginWithOtp(email);
-          if (error) throw error;
+          if (error) {
+            console.error('OTP Send Error:', error);
+            throw new Error(typeof error === 'string' ? error : (error.message || JSON.stringify(error)));
+          }
           setOtpSent(true);
           setMessage(`OTP sent to ${email}. Please check your inbox.`);
         } else {
           // Verify OTP
           const { error } = await verifyOtp(email, otp);
           if (error) throw error;
+
+          // If this was a signup verification
+          if (pendingSignup) {
+            const { error: regError } = await register(pendingSignup.name, pendingSignup.email, pendingSignup.password);
+            if (regError) {
+              console.error("Registration error after OTP:", regError);
+              // If registration failed but we verified OTP, we might still want to send the welcome email
+              // if it was a "User already registered" error, maybe not?
+              // But if the user THINKS they are signing up, getting a welcome email is nice.
+              // Let's force send it here just in case register() didn't do it because of the error.
+              import('../services/emailService').then(m => m.sendWelcomeEmail(pendingSignup.name, pendingSignup.email));
+            }
+          }
+
           // Success handled by AuthContext updating user
         }
       } else if (isLogin) {
@@ -52,15 +71,23 @@ export const Login = () => {
         const { error } = await login(email, password);
         if (error) throw error;
       } else {
-        // Registration
-        const { error } = await register(name, email, password);
+        // Registration - Initiate OTP Verification
+        setPendingSignup({ name, email, password });
+
+        // Send OTP first
+        const { error } = await loginWithOtp(email);
         if (error) throw error;
-        setMessage('Registration successful! Please check your email to verify your account.');
-        setIsLogin(true);
+
+        // Switch to OTP mode
+        setIsOtpLogin(true);
+        setOtpSent(true);
+        setMessage(`OTP sent to ${email}. Please verify your email to complete registration.`);
       }
     } catch (err: any) {
       console.error('Auth error:', err);
       setError(err.message || 'Authentication failed');
+      // Reset pending signup on error if needed
+      if (!isOtpLogin) setPendingSignup(null);
     } finally {
       setLoading(false);
     }
@@ -202,7 +229,7 @@ export const Login = () => {
             ) : (
               <>
                 {isOtpLogin
-                  ? (otpSent ? 'Verify & Login' : 'Send Login Link / OTP')
+                  ? (otpSent ? 'Verify & Login' : 'Send OTP')
                   : (isLogin ? 'Sign In' : 'Create Account')}
                 <Icons.ArrowRight className="w-4 h-4" />
               </>
@@ -216,7 +243,7 @@ export const Login = () => {
             onClick={() => { setIsOtpLogin(!isOtpLogin); resetState(); }}
             className="text-sm font-medium text-gray-600 hover:text-black underline transition-colors"
           >
-            {isOtpLogin ? 'Back to Password Login' : 'Login with OTP / Magic Link'}
+            {isOtpLogin ? 'Back to Password Login' : 'Login with OTP'}
           </button>
         </div>
 

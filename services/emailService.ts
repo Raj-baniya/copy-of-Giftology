@@ -1,29 +1,24 @@
 import emailjs from '@emailjs/browser';
 
-// EmailJS Configuration for Order Confirmations (Original Account)
-const SERVICE_ID = 'service_xj1ggzr';
-const TEMPLATE_ID_USER = 'template_nvj33wf';
-const TEMPLATE_ID_ADMIN = 'template_wv9628g';
-const PUBLIC_KEY = 'WPCiv1-vH_EzNaI1l';
+// EmailJS Configuration for Order Confirmations (Account 1)
+const SERVICE_ID = 'service_ue7z1qz';
+const TEMPLATE_ID_USER = 'template_eooq0yo';
+const TEMPLATE_ID_ADMIN = 'template_9wwxekk';
+const PUBLIC_KEY = 'mGC5aKS4OMTxdYz5W';
 
-// EmailJS Configuration for Mobile Number Submissions (Second Account)
-const MOBILE_SERVICE_ID = 'service_0qvjc19';
-const TEMPLATE_ID_MOBILE = 'template_ip79ecc'; // Admin Notification Template
-const TEMPLATE_ID_OTP = 'template_pm54r24';    // User OTP Template
-const MOBILE_PUBLIC_KEY = 'h0kv_A348FOP9ZzrT';
+// EmailJS Configuration for Mobile/OTP (Account 2)
+const MOBILE_SERVICE_ID = 'service_k09aipq';
+const TEMPLATE_ID_OTP = 'template_hria60l';
+const MOBILE_PUBLIC_KEY = 'SGkjyZ1R5BvytZwyM';
+// Welcome Template ID (Specific to Account 2)
+const WELCOME_TEMPLATE_ID = 'template_hdafjgo';
 
 // EmailJS doesn't require explicit initialization in v4+
 // Public key is passed directly to send() method
 // But we'll ensure it's available for compatibility
 console.log('EmailJS Order Service initialized:', PUBLIC_KEY ? '✓' : '✗');
 console.log('EmailJS Mobile Service initialized:', MOBILE_PUBLIC_KEY ? '✓' : '✗');
-
-export interface FeedbackSubmission {
-  name: string;
-  email: string;
-  mobileNumber: string;
-  message: string;
-}
+console.log('EmailJS Config Version: 2025-11-24 v10 (Complete Rewrite)');
 
 export interface OrderEmailParams {
   customerName: string;
@@ -35,52 +30,6 @@ export interface OrderEmailParams {
   orderItems?: string;
   view_order_url?: string;
 }
-
-/**
- * Send feedback/contact form submission to admin
- * Uses the Second EmailJS Service (Mobile Service)
- */
-export const sendFeedbackToAdmin = async (data: FeedbackSubmission): Promise<{ success: boolean; error?: string }> => {
-  try {
-    console.log('Attempting to send feedback to admin:', data);
-
-    // Prepare email parameters for admin
-    const emailParams = {
-      to_email: 'giftology.in14@gmail.com',
-      user_name: data.name,
-      user_mobile: `+91 ${data.mobileNumber}`,
-      user_email: data.email,
-      message: data.message, // Added feedback message
-      submission_time: new Date().toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        dateStyle: 'long',
-        timeStyle: 'medium'
-      }),
-      source: 'Website Feedback Form'
-    };
-
-    console.log('Email params prepared:', emailParams);
-
-    // Send email via EmailJS using the SECOND account
-    const response = await emailjs.send(MOBILE_SERVICE_ID, TEMPLATE_ID_MOBILE, emailParams, MOBILE_PUBLIC_KEY);
-
-    console.log('EmailJS response:', response);
-
-    if (response.status === 200) {
-      console.log('✅ Feedback email sent successfully!');
-      return { success: true };
-    } else {
-      throw new Error(`EmailJS returned status: ${response.status}`);
-    }
-
-  } catch (error: any) {
-    console.error('❌ Failed to send feedback email:', error);
-    return {
-      success: false,
-      error: error?.text || error?.message || 'Unknown error occurred'
-    };
-  }
-};
 
 /**
  * Send order confirmation email to user
@@ -228,6 +177,47 @@ export const sendOtpToUser = async (name: string, email: string, otp: string): P
 
   } catch (error: any) {
     console.error('❌ Failed to send OTP email:', error);
+    return {
+      success: false,
+      error: error?.text || error?.message || 'Unknown error occurred'
+    };
+  }
+};
+
+/**
+ * Send Welcome Email to new user
+ * Uses the Second EmailJS Service (Mobile Service) with Welcome Template
+ */
+export const sendWelcomeEmail = async (name: string, email: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    console.log('📧 Attempting to send Welcome Email to user:', email);
+
+    const welcomeEmailParams = {
+      user_name: name,
+      to_name: name,          // Fallback
+
+      // Target Email Candidates - One of these MUST match the template's "To Email" field
+      to_email: email,
+      user_email: email,      // Fallback
+      recipient_email: email, // Fallback
+      email: email,           // Common default
+      customer_email: email,  // Used in other templates
+
+      message: "Welcome to Giftology! We're excited to have you."
+    };
+
+    // Using the global constants which have been updated with the correct credentials
+    const response = await emailjs.send(MOBILE_SERVICE_ID, WELCOME_TEMPLATE_ID, welcomeEmailParams, MOBILE_PUBLIC_KEY);
+
+    if (response.status === 200) {
+      console.log('✅ Welcome email sent successfully!');
+      return { success: true };
+    } else {
+      throw new Error(`EmailJS returned status: ${response.status}`);
+    }
+
+  } catch (error: any) {
+    console.error('❌ Failed to send Welcome email:', error);
     return {
       success: false,
       error: error?.text || error?.message || 'Unknown error occurred'

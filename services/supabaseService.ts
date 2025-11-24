@@ -8,6 +8,7 @@ export interface Product {
     slug: string;
     description: string;
     price: number;
+    market_price?: number;
     sale_price?: number;
     stock_quantity: number;
     images: string[];
@@ -150,7 +151,7 @@ export const createOrder = async (orderData: any, orderItems: any[]) => {
 export const getAdminOrders = async () => {
     const { data, error } = await supabase
         .from('orders')
-        .select('*, order_items(*, products(name))')
+        .select('*, order_items(*, products(name, images))')
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -163,7 +164,7 @@ export const getAdminOrders = async () => {
 export const getUserOrders = async (userId: string) => {
     const { data, error } = await supabase
         .from('orders')
-        .select('*, order_items(*, products(name))')
+        .select('*, order_items(*, products(name, images))')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
@@ -200,8 +201,9 @@ export const addProduct = async (product: any) => {
         slug: slug,
         description: product.description,
         price: product.price,
+        market_price: product.marketPrice, // Map frontend marketPrice to DB market_price
         stock_quantity: 100, // Default for now
-        images: [product.imageUrl], // Assuming frontend sends imageUrl
+        images: product.images || [product.imageUrl], // Support multiple images
         category_id: product.category_id, // This needs to be resolved from category slug/name if not provided
         is_featured: product.trending || false,
         is_active: true
@@ -231,7 +233,9 @@ export const updateProduct = async (id: string, updates: any) => {
     if (updates.name) dbUpdates.name = updates.name;
     if (updates.description) dbUpdates.description = updates.description;
     if (updates.price) dbUpdates.price = updates.price;
-    if (updates.imageUrl) dbUpdates.images = [updates.imageUrl];
+    if (updates.marketPrice) dbUpdates.market_price = updates.marketPrice;
+    if (updates.images) dbUpdates.images = updates.images;
+    else if (updates.imageUrl) dbUpdates.images = [updates.imageUrl];
     if (updates.trending !== undefined) dbUpdates.is_featured = updates.trending;
 
     const { data, error } = await supabase
@@ -338,4 +342,35 @@ export const seedDatabase = async () => {
     }
 
     return { success: errors.length === 0, errors };
+};
+
+// --- Profile Management ---
+
+export const getUserProfile = async (userId: string) => {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+    if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+    }
+    return data;
+};
+
+export const updateUserProfile = async (userId: string, updates: any) => {
+    const { data, error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId)
+        .select()
+        .single();
+
+    if (error) {
+        console.error('Error updating user profile:', error);
+        throw error;
+    }
+    return data;
 };

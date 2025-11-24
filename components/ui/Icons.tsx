@@ -29,7 +29,14 @@ import {
   Banknote,
   ArrowRight,
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  Image,
+  RefreshCw,
+  ShoppingCart,
+  Check,
+  Truck,
+  Zap,
+  MapPin
 } from 'lucide-react';
 
 export const Icons = {
@@ -63,5 +70,12 @@ export const Icons = {
   Banknote,
   ArrowRight,
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  Image,
+  RefreshCw,
+  ShoppingCart,
+  Check,
+  Truck,
+  Zap,
+  MapPin
 };

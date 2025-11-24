@@ -161,7 +161,7 @@ export const Shop = () => {
                                     <div>
                                         <div className="flex justify-between items-center mb-2">
                                             <h4 className="font-bold text-sm text-textMuted">Max Price</h4>
-                                            <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded">₹{priceRange}</span>
+                                            <span className="text-xs font-bold bg-gray-100 px-2 py-1 rounded" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{priceRange}</span>
                                         </div>
                                         <input
                                             type="range"
@@ -171,9 +171,9 @@ export const Shop = () => {
                                             onChange={(e) => setPriceRange(Number(e.target.value))}
                                             className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#E94E77]"
                                         />
-                                        <div className="flex justify-between text-xs text-gray-400 mt-2">
-                                            <span>₹0</span>
-                                            <span>₹5000</span>
+                                        <div className="flex justify-between text-xs text-gray-400 mt-2" style={{ fontFamily: 'Arial, sans-serif' }}>
+                                            <span>&#8377;0</span>
+                                            <span>&#8377;5000</span>
                                         </div>
                                     </div>
                                 </div>
@@ -195,7 +195,8 @@ export const Shop = () => {
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         whileHover={{ y: -5 }}
-                                        className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group border border-gray-100 flex flex-col relative"
+                                        onClick={() => navigate(`/product/${product.slug || product.id}`)}
+                                        className="bg-white rounded-lg md:rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group border border-gray-100 flex flex-col relative cursor-pointer"
                                     >
                                         <div className="relative aspect-square overflow-hidden bg-gray-50">
                                             <img
@@ -215,7 +216,12 @@ export const Shop = () => {
                                                 <h3 className="font-bold text-sm md:text-lg text-gray-900 leading-tight line-clamp-2">{product.name}</h3>
                                             </div>
                                             <div className="flex flex-col md:flex-row md:items-end justify-between mt-3 gap-2">
-                                                <span className="text-sm md:text-xl font-bold text-gray-900">₹{product.price}</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm md:text-xl font-bold text-gray-900" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{product.price}</span>
+                                                    {product.marketPrice && product.marketPrice > product.price && (
+                                                        <span className="text-xs text-gray-400 line-through" style={{ fontFamily: 'Arial, sans-serif' }}>&#8377;{product.marketPrice}</span>
+                                                    )}
+                                                </div>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
